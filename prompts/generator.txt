@@ -1,14 +1,17 @@
-请根据下面题面，写一个完整可运行的 `generate.py`，要求：
-1. 严格符合题目输入约束。
-2. 生成 30 组数据文件到当前目录，文件名为 `1.in` 到 `30.in`。
-3. 数据分层：
-   - 1~5：小范围、易人工调试。
-   - 6~15：随机中等规模。
-   - 16~25：接近上限的大规模。
-   - 26~30：边界/特殊/极端情况。
-4. 使用 Python 标准库，不依赖第三方包。
-5. 代码需要可重复运行（建议固定 random seed）。
-6. 只输出 Python 代码，不要解释。
+Given the problem statement below, generate a complete runnable `generate.py` script.
 
-题面如下：
+Requirements:
+1. Strictly satisfy all input constraints from the statement.
+2. Generate exactly {{total_cases}} input files in the current folder, named `1.in` ... `{{total_cases}}.in`.
+3. Use this exact distribution:
+   - first {{small_cases}} cases: small/easy-to-debug
+   - next {{special_cases}} cases: special/edge/extreme patterns
+   - next {{random_cases}} cases: random medium-scale
+   - last {{max_cases}} cases: near upper-limit stress tests
+4. Use Python standard library only.
+5. Make generation reproducible (fixed random seed).
+6. Keep input format strictly valid.
+7. Output Python code only, no explanation.
+
+Problem statement:
 {{problem}}

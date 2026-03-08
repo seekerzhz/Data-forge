@@ -1,9 +1,13 @@
-请根据下面题面，写一个可提交通过的 `solution.cpp`（C++17），要求：
-1. 严格按题意读写标准输入输出。
-2. 复杂度能通过常见竞赛数据范围。
-3. 代码完整可编译，包含必要头文件和 main 函数。
-4. 尽量稳健处理边界情况。
-5. 只输出 C++ 代码，不要解释。
+Given the problem statement below, produce an accepted-quality `solution.cpp` (C++17).
 
-题面如下：
+Requirements:
+1. Read from stdin and write to stdout exactly as required.
+2. Time complexity must be appropriate for contest constraints.
+3. Output complete compilable C++17 code with `main`.
+4. Style should be close to tourist: concise, efficient, clean naming, minimal clutter.
+5. Add brief Chinese comments only on key logic.
+6. Handle edge cases robustly.
+7. Output C++ code only, no explanation.
+
+Problem statement:
 {{problem}}

@@ -3,12 +3,15 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
+from dotenv import load_dotenv
 from openai import OpenAI
+
+load_dotenv()
 
 
 @dataclass
 class LLMConfig:
-    provider: str = "openai"
+    provider: str = "ark"
     model: str | None = None
     temperature: float = 0.1
 
@@ -30,7 +33,7 @@ class LLMClient:
         if provider == "ark":
             api_key = os.getenv("ARK_API_KEY")
             if not api_key:
-                raise ValueError("缺少 ARK_API_KEY 环境变量")
+                raise ValueError("缺少 ARK_API_KEY，请在 .env 或环境变量中配置")
             return OpenAI(
                 api_key=api_key,
                 base_url=os.getenv("ARK_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3"),
@@ -38,7 +41,7 @@ class LLMClient:
 
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
-            raise ValueError("缺少 OPENAI_API_KEY 环境变量")
+            raise ValueError("缺少 OPENAI_API_KEY，请在 .env 或环境变量中配置")
         return OpenAI(api_key=api_key)
 
     def chat(self, system_prompt: str, user_prompt: str) -> str:

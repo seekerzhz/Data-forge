@@ -1,4 +1,4 @@
-"""快速示例：使用本地题面一键生成。"""
+"""Quick example: generate files from local problem statement."""
 
 import subprocess
 
@@ -8,7 +8,9 @@ subprocess.run(
         "forge.py",
         "workspace/example/problem.txt",
         "--provider",
-        "openai",
+        "ark",
+        "--num-cases",
+        "50",
         "--skip-run",
     ],
     check=True,
