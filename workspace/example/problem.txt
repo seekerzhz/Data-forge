@@ -1,31 +1,119 @@
-# UVA1573 赌博 Hey, Better Bettor
+# CF2201F2 Monotone Monochrome Matrices (Hard Version)
 
 ## 题目描述
 
-####  _“在赌场，最重要的规则是让他们继续玩，让他们回来。他们玩得越久，输得就越多，最后，我们得到了一切。”_ 
-####  _（摘自1995年的电影《赌场》）_ 
-# 题目大意
-你在赌场上玩一个游戏，每次赌注是1美元。赢了会得到2美元，输了什么也得不到。赌场有一个优惠:在任何时候，赌场可以补偿 X% 的损失，使用优惠之后你可以退出赌场，也可以继续玩下去。退出赌场之前你只能使用一次这样的优惠。
+This is the hard version of the problem. The difference between the versions is that in this version, the constraints on  $ n $  and  $ q $  are very large. You can hack only if you solved all versions of this problem.
 
-例如，x = 20,你玩了 10 次，赢了3次，总共损失 10 - 3 * 2 = 4元，使用优惠之后损失 3.2 元。但如果你赢了6次，总共获利 6 * 2 - 10 = 2元。
+A monochrome matrix of size  $ n \times n $  is a matrix of  $ n $  rows and  $ n $  columns, where each cell is colored either black or white. Let the color of cell  $ (r,c) $  in a monochrome matrix  $ C $  be denoted as  $ C[r,c] $ .
 
-假定每局比赛胜率为 p% ，输入 x，p（0≤x<100,0≤p<50），输出最优策略下最大的期望获利。
+Let's call such a matrix  $ C $  monotone if it satisfies the following condition:
+
+- There exist no two rows  $ 1 \le i  \lt  j \le n $  and two columns  $ 1 \le k  \lt  l \le n $  that satisfy the following three conditions: 
+    - $ C[i,k]=C[j,l] $ ;
+    - $ C[j,k]=C[i,l] $ ;
+    - $ C[i,k] \neq C[j,k] $ .
+
+There is a monochrome matrix  $ M $  of size  $ n \times n $ , where all cells are initially white. Please solve  $ q $  queries of the following kind:
+
+- $ r\;c $ : Change the color of the cell  $ (r,c) $  in  $ M $  to black. Then, determine if  $ M $  is monotone or not.
+
+For each query, it is guaranteed that the color of the cell  $ (r,c) $  was white before the query.
+
+Do note that the updates are persistent. In other words, the change in color from one query affects the later queries as well.
 
 ## 输入格式
 
-输入由多个测试用例组成。测试用例由退款百分比x（0≤ x<100）和获胜概率百分比p（0≤ p<50）组成。x和p最多有两位小数点。
+Each test contains multiple test cases. The first line contains the number of test cases  $ t $  ( $ 1 \le t \le 10^3 $ ). The description of the test cases follows.
+
+The first line of each test case contains two integers  $ n $  and  $ q $  ( $ 2 \le n \le \color{red}{2\,000\,000} $ ,  $ 1 \le q \le \min(n^2,\color{red}{2\,000\,000}) $ ).
+
+Each of the  $ q $  following lines contains two integers  $ r_i $ ,  $ c_i $  denoting the  $ i $ -th query ( $ 1 \le r_i,c_i \le n $ ).
+
+For each query, it is guaranteed that the color of the cell  $ (r,c) $  was white before the query.
+
+It is guaranteed that the sum of  $ n $  over all test cases does not exceed  $ \color{red}{2\,000\,000} $ .
+
+It is guaranteed that the sum of  $ q $  over all test cases does not exceed  $ \color{red}{2\,000\,000} $ .
 
 ## 输出格式
 
-对于每个测试用例，显示最优策略下最大的期望获利，误差不超过10的−3次方。
-# 输入输出样例
-输入#1
+For each query, output "YES" or "NO" on a separate line based on the answer of the query.
+
+You can output the answer in any case. For example, the strings "yEs", "yes", and "Yes" will also be recognized as positive responses.
+
+## 输入输出样例 #1
+
+### 输入 #1
+
 ```
-0 49.9
-50 49.85
+2
+3 9
+2 2
+3 3
+2 3
+3 1
+3 2
+1 1
+1 2
+2 1
+1 3
+5 17
+2 1
+4 5
+4 1
+3 3
+3 1
+3 5
+1 3
+1 5
+1 1
+5 3
+5 5
+5 1
+1 4
+5 2
+5 4
+1 2
+2 5
 ```
-输出#1
+
+### 输出 #1
+
 ```
-0.0
-7.10178453
+YES
+NO
+YES
+NO
+YES
+NO
+NO
+YES
+YES
+YES
+NO
+YES
+NO
+NO
+YES
+NO
+NO
+YES
+NO
+NO
+YES
+YES
+NO
+YES
+YES
+YES
 ```
+
+## 说明/提示
+
+In the first test case,  $ M $  has size  $ 3 \times 3 $ . The states of  $ M $  after each query are as shown below.
+
+$$$
+\quad\, \begin{bmatrix} \square & \square & \square\\ \square & \blacksquare & \square\\ \square & \square & \square \end{bmatrix} \to \begin{bmatrix} \square & \square & \square\\ \square & \color{red}{\blacksquare} & \color{red}{\square}\\ \square & \color{red}{\square} & \color{red}{\blacksquare} \end{bmatrix} \to \begin{bmatrix} \square & \square & \square\\ \square & \blacksquare & \blacksquare\\ \square & \square & \blacksquare \end{bmatrix} \\\to \begin{bmatrix} \square & \square & \square\\ \color{red}{\square} & \color{red}{\blacksquare} & \blacksquare\\ \color{red}{\blacksquare} & \color{red}{\square} & \blacksquare \end{bmatrix} \to \begin{bmatrix} \square & \square & \square\\ \square & \blacksquare & \blacksquare\\ \blacksquare & \blacksquare & \blacksquare \end{bmatrix} \to \begin{bmatrix} \color{red}{\blacksquare} & \color{red}{\square} & \square\\ \color{red}{\square} & \color{red}{\blacksquare} & \blacksquare\\ \blacksquare & \blacksquare & \blacksquare \end{bmatrix} \\\to \begin{bmatrix} \color{red}{\blacksquare} & \blacksquare & \color{red}{\square}\\ \color{red}{\square} & \blacksquare & \color{red}{\blacksquare}\\ \blacksquare & \blacksquare & \blacksquare \end{bmatrix} \to \begin{bmatrix} \blacksquare & \blacksquare & \square\\ \blacksquare & \blacksquare & \blacksquare\\ \blacksquare & \blacksquare & \blacksquare \end{bmatrix} \to \begin{bmatrix} \blacksquare & \blacksquare & \blacksquare\\ \blacksquare & \blacksquare & \blacksquare\\ \blacksquare & \blacksquare & \blacksquare \end{bmatrix}
+$$$
+
+On queries where  $ M $  is not monotonic, the four squares highlighted in red denote cells that violate the condition stated above.
