@@ -42,11 +42,19 @@ python3 forge.py workspace/example/problem.txt --provider ark --num-cases 80
 
 使用你自己的解法：
 ```bash
+# 方式A：传入你本地已有的解法路径（推荐）
 python3 forge.py workspace/example/problem.txt \
   --provider ark \
   --no-generate-solution \
-  --solution-path /path/to/solution.cpp
+  --solution-path ./my_solution.cpp
+
+# 方式B：提前把解法放到 workspace/run/solution.cpp，然后不传 --solution-path
+cp ./my_solution.cpp workspace/run/solution.cpp
+python3 forge.py workspace/example/problem.txt --provider ark --no-generate-solution
 ```
+
+> 注意：`--solution-path /run/solution.cpp` 指向系统根目录 `/run`，通常没有你的代码文件，
+> 所以会报“文件不存在”。多数情况下你想要的是项目目录下的相对路径，例如 `./solution.cpp`。
 
 只生成代码不执行：
 ```bash
@@ -75,8 +83,16 @@ python3 forge.py workspace/example/problem.txt --provider ark --num-cases 50
 
 Use your own solution:
 ```bash
+# Option A: pass path to your existing local solution file
 python3 forge.py workspace/example/problem.txt \
   --provider ark \
   --no-generate-solution \
-  --solution-path /path/to/solution.cpp
+  --solution-path ./my_solution.cpp
+
+# Option B: copy it to workspace/run/solution.cpp, then omit --solution-path
+cp ./my_solution.cpp workspace/run/solution.cpp
+python3 forge.py workspace/example/problem.txt --provider ark --no-generate-solution
 ```
+
+> Note: `--solution-path /run/solution.cpp` points to the system `/run` directory, not your repo.
+> In most cases you want a relative path like `./solution.cpp`.

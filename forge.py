@@ -48,7 +48,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--num-cases", type=int, default=50, help="Number of test cases to generate")
     parser.add_argument("--skip-run", action="store_true", help="Only generate source files")
     parser.add_argument("--no-generate-solution", action="store_true", help="Use existing solution instead of LLM")
-    parser.add_argument("--solution-path", type=Path, default=None, help="Path to user solution.cpp when no generation")
+    parser.add_argument("--solution-path", type=Path, default=None, help="Path to your existing solution.cpp (absolute or relative)")
     parser.add_argument("--timeout", type=float, default=5.0, help="Per test case runtime timeout in seconds")
     return parser.parse_args()
 
@@ -57,12 +57,22 @@ def resolve_solution(workspace: Path, user_solution: Path | None) -> Path:
     target = workspace / "solution.cpp"
     if user_solution is None:
         if not target.exists():
-            raise FileNotFoundError("未生成解法时，需要提供 --solution-path 或提前在 workspace 放置 solution.cpp")
+            raise FileNotFoundError(
+                "未生成解法时，需要提供 --solution-path，或提前在 workspace 下放置 solution.cpp"
+            )
         return target
 
-    src = user_solution.resolve()
+    src = user_solution.expanduser().resolve()
     if not src.exists():
-        raise FileNotFoundError(f"solution 文件不存在: {src}")
+        raise FileNotFoundError(
+            f"solution 文件不存在: {src}\n"
+            "请确认该文件真实存在。示例：\n"
+            "  1) 若你在仓库根目录有本地解法，可用 --solution-path ./solution.cpp\n"
+            "  2) 或把解法放到 workspace/run/solution.cpp 后不传 --solution-path\n"
+            f"当前工作目录: {Path.cwd()}"
+        )
+    if src.is_dir():
+        raise IsADirectoryError(f"--solution-path 需要是文件，不是目录: {src}")
     if src != target.resolve():
         shutil.copyfile(src, target)
     return target
