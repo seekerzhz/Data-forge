@@ -1,0 +1,13 @@
+Given the problem statement below, produce an accepted-quality `solution.cpp` (C++17).
+
+Requirements:
+1. Read from stdin and write to stdout exactly as required.
+2. Time complexity must be appropriate for contest constraints.
+3. Output complete compilable C++17 code with `main`.
+4. Style should be close to tourist: concise, efficient, clean naming, minimal clutter.
+5. Add brief Chinese comments only on key logic.
+6. Handle edge cases robustly.
+7. Output C++ code only, no explanation.
+
+Problem statement:
+{{problem}}
