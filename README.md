@@ -1,98 +1,72 @@
-# DataForge / Forge
+# DataForge / Forge 升级版
 
-## 中文介绍
+DataForge 用于把洛谷题目自动转换为可导入 Hydro 的测试数据压缩包。
 
-DataForge 是一个面向算法竞赛出题/验题场景的自动化工具：你只需要提供题面，它就能自动生成数据脚本 `generate.py`、生成或使用你自己的 `solution.cpp`，并批量产出 `*.in/*.out`。
+## 1. 总体架构设计
 
-### 核心功能
-- 从 `.env` 读取 API 与模型配置（默认使用 Ark）。
-- 支持两种 LLM Provider：`ark` / `openai`。
-- 默认生成 50 组数据，可通过参数自定义数量。
-- 数据按强度分层：小数据 / 特殊数据 / 随机数据 / 极限数据。
-- 支持跳过解法生成，直接使用你自己写的 `solution.cpp`。
-- 对每个测试点设置运行超时（默认 5 秒），超时后自动跳过并提示。
+- `core/luogu.py`：题目抓取（支持题号和 URL），可选 Cookie，含降级策略（手工粘贴题面文本）。
+- `core/llm.py` + `core/generator.py` + `core/solution.py`：调用 LLM 生成 `generator.py` 和 `solution.cpp`。
+- `core/sandbox.py`：本地沙箱执行（`subprocess + resource + timeout`）。
+- `core/runner.py`：编译标程并批量生成 `.out`。
+- `core/hydro.py`：构造 Hydro 目录并打包 ZIP。
+- `core/service.py`：MVP 编排服务（抓取 -> 生成 -> 执行 -> 打包）。
+- `webapp.py`：FastAPI Web/API 层（异步任务状态查询与下载）。
 
-### 快速开始
+## 2. 数据流
+
+1. 用户提交 `P1001` 或 URL。
+2. 抓取器解析题面与限制信息。
+3. LLM 生成数据脚本和参考解。
+4. 沙箱内循环执行 `generator.py --id N --output-dir testdata`。
+5. 编译 `solution.cpp`，对每个 `.in` 生成 `.out`。
+6. 产出 Hydro 结构：
+   - `problem.yaml`
+   - `problem_zh.md`
+   - `testdata/config.yaml` + `*.in/*.out`
+7. 输出 ZIP，供下载或 API 返回。
+
+## 3. MVP（命令行）
+
+> 优先路径：先完成爬虫 + LLM + 本地沙箱 + ZIP。
+
 ```bash
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-创建 `.env`（示例）：
-```env
-ARK_API_KEY=your-ark-api-key
-ARK_MODEL=doubao-seed-1-6-250615
-ARK_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
+创建 `.env` 并配置 API Key 后运行：
 
-# optional
-OPENAI_API_KEY=your-openai-api-key
-OPENAI_MODEL=gpt-4o-mini
-```
-
-运行（默认 50 组）：
 ```bash
 python3 forge.py workspace/example/problem.txt --provider ark
 ```
 
-自定义数据数量（例如 80 组）：
+## 4. Web 服务
+
+启动：
+
 ```bash
-python3 forge.py workspace/example/problem.txt --provider ark --num-cases 80
+uvicorn webapp:app --reload --port 8000
 ```
 
-使用你自己的解法：
-```bash
-# 方式A：传入你本地已有的解法路径（推荐）
-python3 forge.py workspace/example/problem.txt \
-  --provider ark \
-  --no-generate-solution \
-  --solution-path ./my_solution.cpp
+API：
+- `POST /generate`：提交 `{ problem, num_cases, include_samples }`，返回 `task_id`
+- `GET /status/{task_id}`：查询进度
+- `GET /download/{task_id}`：下载 ZIP
 
-# 方式B：提前把解法放到 workspace/run/solution.cpp，然后不传 --solution-path
-cp ./my_solution.cpp workspace/run/solution.cpp
-python3 forge.py workspace/example/problem.txt --provider ark --no-generate-solution
-```
+## 5. Docker 部署建议（下一步）
 
-> 注意：`--solution-path /run/solution.cpp` 指向系统根目录 `/run`，通常没有你的代码文件，
-> 所以会报“文件不存在”。多数情况下你想要的是项目目录下的相对路径，例如 `./solution.cpp`。
+推荐 `docker-compose` 拆分：
+- `web`（FastAPI）
+- `worker`（Celery）
+- `redis`（队列）
+- `sandbox-runner`（一次性容器执行 generator）
 
-只生成代码不执行：
-```bash
-python3 forge.py workspace/example/problem.txt --skip-run
-```
+容器执行加上：`--cpus --memory --network=none --pids-limit --read-only`。
 
----
+## 6. 备选方案
 
-## English Overview
-
-DataForge is an automation tool for competitive programming test preparation.
-Given only a problem statement, it can generate `generate.py`, generate (or reuse) `solution.cpp`, and produce batches of `*.in/*.out` files.
-
-### Features
-- Reads API keys and models from `.env` (Ark is default).
-- Supports `ark` and `openai` providers.
-- Generates 50 test cases by default, customizable via CLI.
-- Uses layered data intensity: small / special / random / near-limit stress cases.
-- Can skip solution generation and use your own `solution.cpp`.
-- Per-test timeout (default: 5s), long-running cases are skipped with warning.
-
-### Usage
-```bash
-python3 forge.py workspace/example/problem.txt --provider ark --num-cases 50
-```
-
-Use your own solution:
-```bash
-# Option A: pass path to your existing local solution file
-python3 forge.py workspace/example/problem.txt \
-  --provider ark \
-  --no-generate-solution \
-  --solution-path ./my_solution.cpp
-
-# Option B: copy it to workspace/run/solution.cpp, then omit --solution-path
-cp ./my_solution.cpp workspace/run/solution.cpp
-python3 forge.py workspace/example/problem.txt --provider ark --no-generate-solution
-```
-
-> Note: `--solution-path /run/solution.cpp` points to the system `/run` directory, not your repo.
-> In most cases you want a relative path like `./solution.cpp`.
+若洛谷页面结构变化导致爬虫失效：
+- 继续接收题号用于命名；
+- 用户手动粘贴题面文本；
+- 使用 `fallback_from_raw` 解析最低限度字段并继续生成流程。
