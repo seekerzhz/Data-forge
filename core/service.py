@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import shutil
 from pathlib import Path
 
 from core.generator import GeneratorBuilder
@@ -30,23 +31,62 @@ class ForgeService:
             pid = self.luogu.normalize_pid(problem)
             return fallback_from_raw(pid, title or pid, raw_text)
 
-    def run_mvp(self, problem: str, workspace: Path, num_cases: int = 15, include_samples: bool = True) -> Path:
-        meta = self.get_problem(problem)
-        text = f"{meta.title}\n\n{meta.description}\n\n输入:\n{meta.input_spec}\n\n输出:\n{meta.output_spec}"
+    @staticmethod
+    def _collect_and_flatten_inputs(data_dir: Path) -> int:
+        input_files = [p for p in data_dir.rglob("*.in") if p.is_file()]
+        if not input_files:
+            return 0
+        input_files.sort()
+        for idx, src in enumerate(input_files, 1):
+            dst = data_dir / f"{idx}.in"
+            if src.resolve() != dst.resolve():
+                shutil.copyfile(src, dst)
+        return len(input_files)
 
+    @staticmethod
+    def _preview_outputs(data_dir: Path, limit: int = 3) -> list[dict[str, str]]:
+        items: list[dict[str, str]] = []
+        for out_file in sorted(data_dir.glob("*.out"))[:limit]:
+            content = out_file.read_text(encoding="utf-8", errors="ignore").strip()
+            items.append({"file": out_file.name, "preview": content[:300]})
+        return items
+
+    def run_mvp(self, problem: str, workspace: Path, num_cases: int = 15, include_samples: bool = True) -> dict:
+        meta = self.get_problem(problem)
+        problem_dir = workspace / meta.pid
+        source_dir = problem_dir / "source"
+        data_dir = problem_dir / "testdata"
+        build_dir = problem_dir / "build"
+        for d in (source_dir, data_dir, build_dir):
+            d.mkdir(parents=True, exist_ok=True)
+
+        text = meta.statement_markdown.strip() or (
+            f"{meta.title}\n\n{meta.description}\n\n输入:\n{meta.input_spec}\n\n输出:\n{meta.output_spec}"
+        )
         script = self.generator_builder.build(text, num_cases, 2, 2, max(1, num_cases // 2), max(1, num_cases // 3))
-        workspace.mkdir(parents=True, exist_ok=True)
-        (workspace / "testdata").mkdir(exist_ok=True)
-        write_text(workspace / "generator.py", script)
-        write_text(workspace / "solution.cpp", self.solution_builder.build(text))
+        write_text(source_dir / "generator.py", script)
+        write_text(source_dir / "solution.cpp", self.solution_builder.build(text))
 
         for i in range(1, num_cases + 1):
-            run_generator_in_sandbox(workspace, "generator.py", i)
+            run_generator_in_sandbox(problem_dir, "source/generator.py", i)
 
-        runner = PipelineRunner(workspace / "testdata")
-        runner.compile_solution(str((workspace / "solution.cpp").resolve()), "solution")
-        runner.produce_outputs("./solution")
+        in_count = self._collect_and_flatten_inputs(data_dir)
+        if in_count == 0:
+            raise RuntimeError("生成器未产出任何 .in 文件，请检查 LLM 生成脚本")
+
+        runner = PipelineRunner(data_dir)
+        runner.compile_solution(str((source_dir / "solution.cpp").resolve()), "solution")
+        outputs, skipped = runner.produce_outputs("./solution")
 
         cache_key = hashlib.md5(f"{meta.pid}-{num_cases}-{include_samples}".encode()).hexdigest()[:12]
-        zip_path = workspace / f"{meta.pid}_{cache_key}.zip"
-        return build_hydro_package(meta, workspace / "testdata", zip_path)
+        zip_path = build_dir / f"{meta.pid}_{cache_key}.zip"
+        build_hydro_package(meta, data_dir, zip_path)
+        return {
+            "zip_path": str(zip_path),
+            "pid": meta.pid,
+            "title": meta.title,
+            "inputs": in_count,
+            "outputs": len(outputs),
+            "skipped": len(skipped),
+            "output_preview": self._preview_outputs(data_dir),
+        }

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import json
 import re
 import time
-from typing import Any
 
 import requests
 from bs4 import BeautifulSoup
@@ -27,8 +27,7 @@ class LuoguClient:
 
     @staticmethod
     def normalize_pid(problem: str) -> str:
-        problem = problem.strip()
-        m = re.search(r"(P\d+)", problem, flags=re.IGNORECASE)
+        m = re.search(r"(P\d+)", problem.strip(), flags=re.IGNORECASE)
         if not m:
             raise ValueError("无法识别题号，请输入如 P1001 或完整题目链接")
         return m.group(1).upper()
@@ -41,21 +40,40 @@ class LuoguClient:
         resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "html.parser")
 
-        title_tag = soup.find("h1")
-        title = title_tag.get_text(strip=True) if title_tag else pid
+        next_data = self._extract_next_data(soup)
+        if next_data:
+            return self._parse_from_next_data(pid, next_data)
+        return self._parse_from_html(pid, soup)
 
-        limits = soup.find_all("span")
-        limit_text = " ".join(x.get_text(" ", strip=True) for x in limits)
-        time_limit = self._extract_with_fallback(limit_text, r"时间限制\s*([0-9]+\s*(?:ms|s))", "1s")
-        memory_limit = self._extract_with_fallback(limit_text, r"内存限制\s*([0-9]+\s*(?:MB|MB?))", "128MB")
+    @staticmethod
+    def _extract_next_data(soup: BeautifulSoup) -> dict | None:
+        node = soup.find("script", id="__NEXT_DATA__")
+        if not node or not node.string:
+            return None
+        try:
+            return json.loads(node.string)
+        except json.JSONDecodeError:
+            return None
 
-        sections = self._parse_sections(soup)
-        description = sections.get("题目描述", "")
-        input_spec = sections.get("输入格式", "")
-        output_spec = sections.get("输出格式", "")
+    def _parse_from_next_data(self, pid: str, payload: dict) -> ProblemMeta:
+        page = payload.get("props", {}).get("pageProps", {})
+        current_data = page.get("data", {}).get("problem", {}) or page.get("currentData", {}).get("problem", {})
+        title = current_data.get("title") or pid
+        limits = current_data.get("limits", {})
+        time_limit = f"{limits.get('time', 1000)}ms" if limits.get("time") else "1s"
+        memory_limit = f"{limits.get('memory', 128)}MB" if limits.get("memory") else "128MB"
 
-        samples = self._parse_samples(soup)
-        tags = [x.get_text(strip=True) for x in soup.select("a[href*='/tag/']")]
+        content = current_data.get("content", {})
+        description = content.get("description", "")
+        input_spec = content.get("input", "")
+        output_spec = content.get("output", "")
+        statement_md = current_data.get("translation", "") or content.get("description", "")
+
+        tags = [x.get("name", "") for x in (current_data.get("tags") or []) if x.get("name")]
+        samples = [
+            SampleCase(input_data=s.get("input", ""), output_data=s.get("output", ""))
+            for s in (content.get("samples") or [])
+        ]
 
         return ProblemMeta(
             pid=pid,
@@ -65,9 +83,26 @@ class LuoguClient:
             description=description,
             input_spec=input_spec,
             output_spec=output_spec,
+            statement_markdown=statement_md,
             tags=tags,
             samples=samples,
         )
+
+    def _parse_from_html(self, pid: str, soup: BeautifulSoup) -> ProblemMeta:
+        title_tag = soup.find("h1")
+        title = title_tag.get_text(strip=True) if title_tag else pid
+        limits = soup.find_all("span")
+        limit_text = " ".join(x.get_text(" ", strip=True) for x in limits)
+        time_limit = self._extract_with_fallback(limit_text, r"时间限制\s*([0-9]+\s*(?:ms|s))", "1s")
+        memory_limit = self._extract_with_fallback(limit_text, r"内存限制\s*([0-9]+\s*(?:MB|MB?))", "128MB")
+        sections = self._parse_sections(soup)
+        description = sections.get("题目描述", "")
+        input_spec = sections.get("输入格式", "")
+        output_spec = sections.get("输出格式", "")
+        samples = self._parse_samples(soup)
+        tags = [x.get_text(strip=True) for x in soup.select("a[href*='/tag/']")]
+        statement_md = f"## 题目描述\n{description}\n\n## 输入格式\n{input_spec}\n\n## 输出格式\n{output_spec}"
+        return ProblemMeta(pid=pid, title=title, time_limit=time_limit, memory_limit=memory_limit, description=description, input_spec=input_spec, output_spec=output_spec, statement_markdown=statement_md, tags=tags, samples=samples)
 
     @staticmethod
     def _extract_with_fallback(text: str, pattern: str, fallback: str) -> str:
@@ -91,28 +126,17 @@ class LuoguClient:
     @staticmethod
     def _parse_samples(soup: BeautifulSoup) -> list[SampleCase]:
         pres = [p.get_text("\n", strip=False).strip("\n") for p in soup.find_all("pre")]
-        samples: list[SampleCase] = []
-        for i in range(0, len(pres) - 1, 2):
-            samples.append(SampleCase(input_data=pres[i], output_data=pres[i + 1]))
-        return samples
+        return [SampleCase(input_data=pres[i], output_data=pres[i + 1]) for i in range(0, len(pres) - 1, 2)]
 
 
 def fallback_from_raw(pid: str, title: str, raw_text: str) -> ProblemMeta:
-    chunks: dict[str, str] = {}
+    chunks: dict[str, str] = {"题目描述": ""}
     current = "题目描述"
-    chunks[current] = ""
     for line in raw_text.splitlines():
         if line.strip() in {"题目描述", "输入格式", "输出格式"}:
             current = line.strip()
             chunks.setdefault(current, "")
             continue
         chunks[current] += line + "\n"
-    return ProblemMeta(
-        pid=pid,
-        title=title,
-        time_limit="1s",
-        memory_limit="128MB",
-        description=chunks.get("题目描述", "").strip(),
-        input_spec=chunks.get("输入格式", "").strip(),
-        output_spec=chunks.get("输出格式", "").strip(),
-    )
+    statement_md = raw_text.strip()
+    return ProblemMeta(pid=pid, title=title, time_limit="1s", memory_limit="128MB", description=chunks.get("题目描述", "").strip(), input_spec=chunks.get("输入格式", "").strip(), output_spec=chunks.get("输出格式", "").strip(), statement_markdown=statement_md)

@@ -1,72 +1,109 @@
-# DataForge / Forge 升级版
+# DataForge（Luogu -> Hydro）
 
-DataForge 用于把洛谷题目自动转换为可导入 Hydro 的测试数据压缩包。
+这是一个“输入洛谷题号，自动生成 Hydro 可导入 ZIP”的工具。
 
-## 1. 总体架构设计
+## 你能得到什么
 
-- `core/luogu.py`：题目抓取（支持题号和 URL），可选 Cookie，含降级策略（手工粘贴题面文本）。
-- `core/llm.py` + `core/generator.py` + `core/solution.py`：调用 LLM 生成 `generator.py` 和 `solution.cpp`。
-- `core/sandbox.py`：本地沙箱执行（`subprocess + resource + timeout`）。
-- `core/runner.py`：编译标程并批量生成 `.out`。
-- `core/hydro.py`：构造 Hydro 目录并打包 ZIP。
-- `core/service.py`：MVP 编排服务（抓取 -> 生成 -> 执行 -> 打包）。
-- `webapp.py`：FastAPI Web/API 层（异步任务状态查询与下载）。
+- 输入 `P1001` 或洛谷题目链接。
+- 自动抓题面（优先拿 Markdown）。
+- 自动用 LLM 生成 `generator.py` + `solution.cpp`。
+- 在本地受限沙箱中执行数据生成。
+- 自动生成 `.in/.out`，并打包成 Hydro 格式 ZIP。
+- Web 页面可查看任务状态与输出预览，结束后自动下载 ZIP。
 
-## 2. 数据流
+---
 
-1. 用户提交 `P1001` 或 URL。
-2. 抓取器解析题面与限制信息。
-3. LLM 生成数据脚本和参考解。
-4. 沙箱内循环执行 `generator.py --id N --output-dir testdata`。
-5. 编译 `solution.cpp`，对每个 `.in` 生成 `.out`。
-6. 产出 Hydro 结构：
-   - `problem.yaml`
-   - `problem_zh.md`
-   - `testdata/config.yaml` + `*.in/*.out`
-7. 输出 ZIP，供下载或 API 返回。
+## 1. 快速开始（最短路径）
 
-## 3. MVP（命令行）
-
-> 优先路径：先完成爬虫 + LLM + 本地沙箱 + ZIP。
+### 1) 安装依赖
 
 ```bash
-python3 -m venv venv
-source venv/bin/activate
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-创建 `.env` 并配置 API Key 后运行：
+### 2) 配置 LLM Key（`.env`）
 
-```bash
-python3 forge.py workspace/example/problem.txt --provider ark
+```env
+ARK_API_KEY=your-key
+ARK_MODEL=doubao-seed-1-6-250615
+ARK_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
+
+# 可选 OpenAI
+OPENAI_API_KEY=your-openai-key
+OPENAI_MODEL=gpt-4o-mini
 ```
 
-## 4. Web 服务
-
-启动：
+### 3) 启动 Web
 
 ```bash
-uvicorn webapp:app --reload --port 8000
+uvicorn webapp:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-API：
-- `POST /generate`：提交 `{ problem, num_cases, include_samples }`，返回 `task_id`
-- `GET /status/{task_id}`：查询进度
-- `GET /download/{task_id}`：下载 ZIP
+浏览器打开 `http://127.0.0.1:8000`，输入题号后点击“生成并下载 ZIP”。
 
-## 5. Docker 部署建议（下一步）
+---
 
-推荐 `docker-compose` 拆分：
-- `web`（FastAPI）
-- `worker`（Celery）
-- `redis`（队列）
-- `sandbox-runner`（一次性容器执行 generator）
+## 2. 目录结构（重点）
 
-容器执行加上：`--cpus --memory --network=none --pids-limit --read-only`。
+每个任务都会创建独立目录，按题号归档：
 
-## 6. 备选方案
+```text
+workspace/tasks/<task_id>/<pid>/
+├── source/
+│   ├── generator.py
+│   └── solution.cpp
+├── testdata/
+│   ├── 1.in
+│   ├── 1.out
+│   ├── 2.in
+│   ├── 2.out
+│   └── ...
+└── build/
+    └── <pid>_<hash>.zip
+```
 
-若洛谷页面结构变化导致爬虫失效：
-- 继续接收题号用于命名；
-- 用户手动粘贴题面文本；
-- 使用 `fallback_from_raw` 解析最低限度字段并继续生成流程。
+> `testdata` 下会强制整理并包含所有 `.in/.out`（若生成器在子目录产出，也会收集后整理）。
+
+---
+
+## 3. Web/API 使用
+
+- `POST /generate`
+  - body: `{ "problem": "P1001", "num_cases": 15, "include_samples": true }`
+  - return: `{ "task_id": "..." }`
+- `GET /status/{task_id}`
+  - 返回 `pending/running/success/failed`
+  - 成功时会返回：
+    - 生成了多少 `.in`
+    - 生成了多少 `.out`
+    - 跳过了多少超时点
+    - 前几个 `.out` 的预览文本
+- `GET /download/{task_id}`
+  - 下载 ZIP
+
+---
+
+## 4. 常见问题
+
+### Q1：为什么没有 `.out`？
+
+现在流程会：
+1. 收集 `testdata` 内所有 `.in`；
+2. 标准化成 `1.in, 2.in...`；
+3. 编译 `solution.cpp` 并逐个生成 `.out`；
+4. 状态接口直接返回统计数。
+
+如果仍为 0，通常是生成器脚本没有产出任何 `.in`，会直接报错提示。
+
+### Q2：洛谷爬虫失效怎么办？
+
+可走降级路径：手动粘贴题面文本（后端 `fallback_from_raw`），仍可继续生成与打包。
+
+---
+
+## 5. 当前实现边界
+
+- 沙箱是本地 `subprocess + resource + timeout`，适合 MVP。
+- 生产建议改为 Docker 一次性容器隔离（CPU/内存/网络/只读根目录限制）。
