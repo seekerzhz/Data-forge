@@ -70,8 +70,9 @@ class ForgeService:
             d.mkdir(parents=True, exist_ok=True)
 
         text = meta.statement_markdown.strip() or (
-            f"{meta.title}\n\n{meta.description}\n\n输入:\n{meta.input_spec}\n\n输出:\n{meta.output_spec}"
+            f"# {meta.title}\n\n## 题目描述\n\n{meta.description}\n\n## 输入格式\n\n{meta.input_spec}\n\n## 输出格式\n\n{meta.output_spec}"
         )
+        write_text(problem_dir / "problem_zh.md", text + "\n")
         script = self.generator_builder.build(text, num_cases, 2, 2, max(1, num_cases // 2), max(1, num_cases // 3))
         write_text(source_dir / "generator.py", script)
         write_text(source_dir / "solution.cpp", self.solution_builder.build(text))

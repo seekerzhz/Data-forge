@@ -55,6 +55,17 @@ class LuoguClient:
         except json.JSONDecodeError:
             return None
 
+    @staticmethod
+    def _extract_samples_from_markdown(md: str) -> list[SampleCase]:
+        samples: list[SampleCase] = []
+        pattern = re.compile(
+            r"###\s*输入\s*#?\d+\s*```\s*(.*?)\s*```\s*###\s*输出\s*#?\d+\s*```\s*(.*?)\s*```",
+            flags=re.DOTALL,
+        )
+        for m in pattern.finditer(md):
+            samples.append(SampleCase(input_data=m.group(1).strip(), output_data=m.group(2).strip()))
+        return samples
+
     def _parse_from_next_data(self, pid: str, payload: dict) -> ProblemMeta:
         page = payload.get("props", {}).get("pageProps", {})
         current_data = page.get("data", {}).get("problem", {}) or page.get("currentData", {}).get("problem", {})
@@ -67,53 +78,25 @@ class LuoguClient:
         if isinstance(content, str):
             content = {"description": content}
 
-        description = (
-            content.get("description")
-            or content.get("statement")
-            or content.get("problemDescription")
-            or ""
-        )
-        input_spec = (
-            content.get("input")
-            or content.get("inputFormat")
-            or content.get("input_description")
-            or ""
-        )
-        output_spec = (
-            content.get("output")
-            or content.get("outputFormat")
-            or content.get("output_description")
-            or ""
-        )
+        description = content.get("description") or content.get("statement") or content.get("problemDescription") or ""
+        input_spec = content.get("input") or content.get("inputFormat") or content.get("input_description") or ""
+        output_spec = content.get("output") or content.get("outputFormat") or content.get("output_description") or ""
 
         tags = [x.get("name", "") for x in (current_data.get("tags") or []) if x.get("name")]
         samples_raw = content.get("samples") or current_data.get("samples") or []
-        samples = [
-            SampleCase(input_data=s.get("input", ""), output_data=s.get("output", ""))
-            for s in samples_raw if isinstance(s, dict)
-        ]
+        samples = [SampleCase(input_data=s.get("input", ""), output_data=s.get("output", "")) for s in samples_raw if isinstance(s, dict)]
 
-        # 若 NEXT_DATA 未给出输入输出，使用样例和结构化字段兜底拼接。
         statement_md = current_data.get("translation", "") or current_data.get("statement", "") or ""
         if not statement_md:
             statement_md = f"## 题目描述\n\n{description}"
+        if not samples:
+            samples = self._extract_samples_from_markdown(statement_md)
         if "输入格式" not in statement_md and input_spec:
             statement_md += f"\n\n## 输入格式\n\n{input_spec}"
         if "输出格式" not in statement_md and output_spec:
             statement_md += f"\n\n## 输出格式\n\n{output_spec}"
 
-        return ProblemMeta(
-            pid=pid,
-            title=title,
-            time_limit=time_limit,
-            memory_limit=memory_limit,
-            description=description,
-            input_spec=input_spec,
-            output_spec=output_spec,
-            statement_markdown=statement_md,
-            tags=tags,
-            samples=samples,
-        )
+        return ProblemMeta(pid=pid, title=title, time_limit=time_limit, memory_limit=memory_limit, description=description, input_spec=input_spec, output_spec=output_spec, statement_markdown=statement_md, tags=tags, samples=samples)
 
     def _parse_from_html(self, pid: str, soup: BeautifulSoup) -> ProblemMeta:
         title_tag = soup.find("h1")
@@ -128,7 +111,7 @@ class LuoguClient:
         output_spec = sections.get("输出格式", "")
         samples = self._parse_samples(soup)
         tags = [x.get_text(strip=True) for x in soup.select("a[href*='/tag/']")]
-        statement_md = f"## 题目描述\n{description}\n\n## 输入格式\n{input_spec}\n\n## 输出格式\n{output_spec}"
+        statement_md = f"# {title}\n\n## 题目描述\n\n{description}\n\n## 输入格式\n\n{input_spec}\n\n## 输出格式\n\n{output_spec}\n"
         return ProblemMeta(pid=pid, title=title, time_limit=time_limit, memory_limit=memory_limit, description=description, input_spec=input_spec, output_spec=output_spec, statement_markdown=statement_md, tags=tags, samples=samples)
 
     @staticmethod
@@ -166,4 +149,5 @@ def fallback_from_raw(pid: str, title: str, raw_text: str) -> ProblemMeta:
             continue
         chunks[current] += line + "\n"
     statement_md = raw_text.strip()
-    return ProblemMeta(pid=pid, title=title, time_limit="1s", memory_limit="128MB", description=chunks.get("题目描述", "").strip(), input_spec=chunks.get("输入格式", "").strip(), output_spec=chunks.get("输出格式", "").strip(), statement_markdown=statement_md)
+    samples = LuoguClient._extract_samples_from_markdown(statement_md)
+    return ProblemMeta(pid=pid, title=title, time_limit="1s", memory_limit="128MB", description=chunks.get("题目描述", "").strip(), input_spec=chunks.get("输入格式", "").strip(), output_spec=chunks.get("输出格式", "").strip(), statement_markdown=statement_md, samples=samples)
