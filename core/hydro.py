@@ -26,13 +26,13 @@ def _normalize_statement(markdown: str, problem: ProblemMeta) -> str:
 def _append_samples(markdown: str, problem: ProblemMeta) -> str:
     if not problem.samples:
         return markdown
-    parts = [markdown.strip(), "\n\n## 样例\n"]
-    for i, s in enumerate(problem.samples, 1):
-        parts.append(f"### 样例 {i}\n")
-        parts.append("#### 输入\n")
-        parts.append(f"```text\n{s.input_data.rstrip()}\n```\n")
-        parts.append("#### 输出\n")
-        parts.append(f"```text\n{s.output_data.rstrip()}\n```\n")
+    parts = [markdown.strip()]
+    for i, sample in enumerate(problem.samples, 1):
+        parts.append(f"\n\n## 输入输出样例 #{i}\n")
+        parts.append(f"### 输入 #{i}\n")
+        parts.append(f"```\n{sample.input_data.rstrip()}\n```\n")
+        parts.append(f"### 输出 #{i}\n")
+        parts.append(f"```\n{sample.output_data.rstrip()}\n```\n")
     return "\n".join(parts).strip() + "\n"
 
 
