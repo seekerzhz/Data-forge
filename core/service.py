@@ -32,27 +32,21 @@ class ForgeService:
 
     def run_mvp(self, problem: str, workspace: Path, num_cases: int = 15, include_samples: bool = True) -> Path:
         meta = self.get_problem(problem)
-        problem_dir = workspace / meta.pid
-        source_dir = problem_dir / "source"
-        data_dir = problem_dir / "testdata"
-        build_dir = problem_dir / "build"
-        for d in (source_dir, data_dir, build_dir):
-            d.mkdir(parents=True, exist_ok=True)
+        text = f"{meta.title}\n\n{meta.description}\n\n输入:\n{meta.input_spec}\n\n输出:\n{meta.output_spec}"
 
-        text = meta.statement_markdown.strip() or (
-            f"{meta.title}\n\n{meta.description}\n\n输入:\n{meta.input_spec}\n\n输出:\n{meta.output_spec}"
-        )
         script = self.generator_builder.build(text, num_cases, 2, 2, max(1, num_cases // 2), max(1, num_cases // 3))
-        write_text(source_dir / "generator.py", script)
-        write_text(source_dir / "solution.cpp", self.solution_builder.build(text))
+        workspace.mkdir(parents=True, exist_ok=True)
+        (workspace / "testdata").mkdir(exist_ok=True)
+        write_text(workspace / "generator.py", script)
+        write_text(workspace / "solution.cpp", self.solution_builder.build(text))
 
         for i in range(1, num_cases + 1):
-            run_generator_in_sandbox(problem_dir, "source/generator.py", i)
+            run_generator_in_sandbox(workspace, "generator.py", i)
 
-        runner = PipelineRunner(data_dir)
-        runner.compile_solution(str((source_dir / "solution.cpp").resolve()), "solution")
+        runner = PipelineRunner(workspace / "testdata")
+        runner.compile_solution(str((workspace / "solution.cpp").resolve()), "solution")
         runner.produce_outputs("./solution")
 
         cache_key = hashlib.md5(f"{meta.pid}-{num_cases}-{include_samples}".encode()).hexdigest()[:12]
-        zip_path = build_dir / f"{meta.pid}_{cache_key}.zip"
-        return build_hydro_package(meta, data_dir, zip_path)
+        zip_path = workspace / f"{meta.pid}_{cache_key}.zip"
+        return build_hydro_package(meta, workspace / "testdata", zip_path)

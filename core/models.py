@@ -18,7 +18,7 @@ class ProblemMeta:
     description: str
     input_spec: str
     output_spec: str
-    statement_markdown: str = ""
     tags: list[str] = field(default_factory=list)
     difficulty: str = "unknown"
     samples: list[SampleCase] = field(default_factory=list)
+

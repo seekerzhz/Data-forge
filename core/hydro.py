@@ -19,10 +19,8 @@ def build_hydro_package(problem: ProblemMeta, workspace: Path, out_zip: Path) ->
         encoding="utf-8",
     )
 
-    md = problem.statement_markdown.strip() or f"# {problem.title}\n\n## 题目描述\n{problem.description}\n\n## 输入格式\n{problem.input_spec}\n\n## 输出格式\n{problem.output_spec}\n"
-    if not md.startswith("#"):
-        md = f"# {problem.title}\n\n" + md
-    (root / "problem_zh.md").write_text(md + "\n", encoding="utf-8")
+    md = f"# {problem.title}\n\n## 题目描述\n{problem.description}\n\n## 输入格式\n{problem.input_spec}\n\n## 输出格式\n{problem.output_spec}\n"
+    (root / "problem_zh.md").write_text(md, encoding="utf-8")
 
     config = {
         "type": "default",
