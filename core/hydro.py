@@ -5,10 +5,21 @@ import shutil
 from pathlib import Path
 import zipfile
 
-import requests
 import yaml
 
 from core.models import ProblemMeta
+
+
+def _normalize_statement(markdown: str, problem: ProblemMeta) -> str:
+    md = markdown.strip() if markdown else ""
+    if not md.startswith("#"):
+        md = f"# {problem.title}\n\n" + md
+
+    if "输入格式" not in md:
+        md += f"\n\n## 输入格式\n\n{problem.input_spec.strip()}\n"
+    if "输出格式" not in md:
+        md += f"\n\n## 输出格式\n\n{problem.output_spec.strip()}\n"
+    return md.strip() + "\n"
 
 
 def _append_samples(markdown: str, problem: ProblemMeta) -> str:
@@ -24,40 +35,14 @@ def _append_samples(markdown: str, problem: ProblemMeta) -> str:
     return "\n".join(parts).strip() + "\n"
 
 
-def _download_statement_assets(markdown: str, additional_dir: Path) -> str:
-    additional_dir.mkdir(parents=True, exist_ok=True)
-    session = requests.Session()
-    session.headers["User-Agent"] = "Mozilla/5.0"
-
-    def save_url(url: str, idx: int) -> str:
-        if url.startswith("//"):
-            url = "https:" + url
-        if url.startswith("/"):
-            url = "https://www.luogu.com.cn" + url
-        try:
-            resp = session.get(url, timeout=15)
-            resp.raise_for_status()
-            ext = Path(url.split("?")[0]).suffix or ".bin"
-            name = f"asset_{idx}{ext}"
-            path = additional_dir / name
-            path.write_bytes(resp.content)
-            return f"file://{name}"
-        except Exception:
-            return url
-
-    links = re.findall(r"!\[[^\]]*\]\(([^)]+)\)", markdown)
-    links += re.findall(r"<img[^>]+src=[\"']([^\"']+)[\"']", markdown)
-    replaced = markdown
-    for i, old in enumerate(dict.fromkeys(links), 1):
-        new = save_url(old, i)
-        replaced = replaced.replace(old, new)
-    return replaced
+def _keep_image_hyperlinks(markdown: str) -> str:
+    # 将 markdown 图片语法转换为普通超链接，避免 additional_file 依赖。
+    return re.sub(r"!\[([^\]]*)\]\(([^)]+)\)", r"[\1](\2)", markdown)
 
 
 def build_hydro_package(problem: ProblemMeta, workspace: Path, out_zip: Path) -> Path:
     root = workspace / f"{problem.pid}"
     testdata = root / "testdata"
-    additional = root / "additional_file"
     root.mkdir(parents=True, exist_ok=True)
     testdata.mkdir(parents=True, exist_ok=True)
 
@@ -66,11 +51,10 @@ def build_hydro_package(problem: ProblemMeta, workspace: Path, out_zip: Path) ->
         encoding="utf-8",
     )
 
-    md = problem.statement_markdown.strip() or f"# {problem.title}\n\n## 题目描述\n{problem.description}\n\n## 输入格式\n{problem.input_spec}\n\n## 输出格式\n{problem.output_spec}\n"
-    if not md.startswith("#"):
-        md = f"# {problem.title}\n\n" + md
+    base_md = problem.statement_markdown or f"# {problem.title}\n\n## 题目描述\n\n{problem.description}\n"
+    md = _normalize_statement(base_md, problem)
     md = _append_samples(md, problem)
-    md = _download_statement_assets(md, additional)
+    md = _keep_image_hyperlinks(md)
     (root / "problem_zh.md").write_text(md, encoding="utf-8")
 
     config = {
