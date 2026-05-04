@@ -1,98 +1,109 @@
-# DataForge / Forge
+# DataForge（Luogu -> Hydro）
 
-## 中文介绍
+这是一个“输入洛谷题号，自动生成 Hydro 可导入 ZIP”的工具。
 
-DataForge 是一个面向算法竞赛出题/验题场景的自动化工具：你只需要提供题面，它就能自动生成数据脚本 `generate.py`、生成或使用你自己的 `solution.cpp`，并批量产出 `*.in/*.out`。
+## 你能得到什么
 
-### 核心功能
-- 从 `.env` 读取 API 与模型配置（默认使用 Ark）。
-- 支持两种 LLM Provider：`ark` / `openai`。
-- 默认生成 50 组数据，可通过参数自定义数量。
-- 数据按强度分层：小数据 / 特殊数据 / 随机数据 / 极限数据。
-- 支持跳过解法生成，直接使用你自己写的 `solution.cpp`。
-- 对每个测试点设置运行超时（默认 5 秒），超时后自动跳过并提示。
-
-### 快速开始
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
-
-创建 `.env`（示例）：
-```env
-ARK_API_KEY=your-ark-api-key
-ARK_MODEL=doubao-seed-1-6-250615
-ARK_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
-
-# optional
-OPENAI_API_KEY=your-openai-api-key
-OPENAI_MODEL=gpt-4o-mini
-```
-
-运行（默认 50 组）：
-```bash
-python3 forge.py workspace/example/problem.txt --provider ark
-```
-
-自定义数据数量（例如 80 组）：
-```bash
-python3 forge.py workspace/example/problem.txt --provider ark --num-cases 80
-```
-
-使用你自己的解法：
-```bash
-# 方式A：传入你本地已有的解法路径（推荐）
-python3 forge.py workspace/example/problem.txt \
-  --provider ark \
-  --no-generate-solution \
-  --solution-path ./my_solution.cpp
-
-# 方式B：提前把解法放到 workspace/run/solution.cpp，然后不传 --solution-path
-cp ./my_solution.cpp workspace/run/solution.cpp
-python3 forge.py workspace/example/problem.txt --provider ark --no-generate-solution
-```
-
-> 注意：`--solution-path /run/solution.cpp` 指向系统根目录 `/run`，通常没有你的代码文件，
-> 所以会报“文件不存在”。多数情况下你想要的是项目目录下的相对路径，例如 `./solution.cpp`。
-
-只生成代码不执行：
-```bash
-python3 forge.py workspace/example/problem.txt --skip-run
-```
+- 输入 `P1001` 或洛谷题目链接。
+- 自动抓题面（优先拿 Markdown）。
+- 自动用 LLM 生成 `generator.py` + `solution.cpp`。
+- 在本地受限沙箱中执行数据生成。
+- 自动生成 `.in/.out`，并打包成 Hydro 格式 ZIP。
+- Web 页面可查看任务状态与输出预览，结束后自动下载 ZIP。
 
 ---
 
-## English Overview
+## 1. 快速开始（最短路径）
 
-DataForge is an automation tool for competitive programming test preparation.
-Given only a problem statement, it can generate `generate.py`, generate (or reuse) `solution.cpp`, and produce batches of `*.in/*.out` files.
+### 1) 安装依赖
 
-### Features
-- Reads API keys and models from `.env` (Ark is default).
-- Supports `ark` and `openai` providers.
-- Generates 50 test cases by default, customizable via CLI.
-- Uses layered data intensity: small / special / random / near-limit stress cases.
-- Can skip solution generation and use your own `solution.cpp`.
-- Per-test timeout (default: 5s), long-running cases are skipped with warning.
-
-### Usage
 ```bash
-python3 forge.py workspace/example/problem.txt --provider ark --num-cases 50
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-Use your own solution:
-```bash
-# Option A: pass path to your existing local solution file
-python3 forge.py workspace/example/problem.txt \
-  --provider ark \
-  --no-generate-solution \
-  --solution-path ./my_solution.cpp
+### 2) 配置 LLM Key（`.env`）
 
-# Option B: copy it to workspace/run/solution.cpp, then omit --solution-path
-cp ./my_solution.cpp workspace/run/solution.cpp
-python3 forge.py workspace/example/problem.txt --provider ark --no-generate-solution
+```env
+ARK_API_KEY=your-key
+ARK_MODEL=doubao-seed-1-6-250615
+ARK_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
+
+# 可选 OpenAI
+OPENAI_API_KEY=your-openai-key
+OPENAI_MODEL=gpt-4o-mini
 ```
 
-> Note: `--solution-path /run/solution.cpp` points to the system `/run` directory, not your repo.
-> In most cases you want a relative path like `./solution.cpp`.
+### 3) 启动 Web
+
+```bash
+uvicorn webapp:app --host 0.0.0.0 --port 8000 --reload
+```
+
+浏览器打开 `http://127.0.0.1:8000`，输入题号后点击“生成并下载 ZIP”。
+
+---
+
+## 2. 目录结构（重点）
+
+每个任务都会创建独立目录，按题号归档：
+
+```text
+workspace/tasks/<task_id>/<pid>/
+├── source/
+│   ├── generator.py
+│   └── solution.cpp
+├── testdata/
+│   ├── 1.in
+│   ├── 1.out
+│   ├── 2.in
+│   ├── 2.out
+│   └── ...
+└── build/
+    └── <pid>_<hash>.zip
+```
+
+> `testdata` 下会强制整理并包含所有 `.in/.out`（若生成器在子目录产出，也会收集后整理）。
+
+---
+
+## 3. Web/API 使用
+
+- `POST /generate`
+  - body: `{ "problem": "P1001", "num_cases": 15, "include_samples": true }`
+  - return: `{ "task_id": "..." }`
+- `GET /status/{task_id}`
+  - 返回 `pending/running/success/failed`
+  - 成功时会返回：
+    - 生成了多少 `.in`
+    - 生成了多少 `.out`
+    - 跳过了多少超时点
+    - 前几个 `.out` 的预览文本
+- `GET /download/{task_id}`
+  - 下载 ZIP
+
+---
+
+## 4. 常见问题
+
+### Q1：为什么没有 `.out`？
+
+现在流程会：
+1. 收集 `testdata` 内所有 `.in`；
+2. 标准化成 `1.in, 2.in...`；
+3. 编译 `solution.cpp` 并逐个生成 `.out`；
+4. 状态接口直接返回统计数。
+
+如果仍为 0，通常是生成器脚本没有产出任何 `.in`，会直接报错提示。
+
+### Q2：洛谷爬虫失效怎么办？
+
+可走降级路径：手动粘贴题面文本（后端 `fallback_from_raw`），仍可继续生成与打包。
+
+---
+
+## 5. 当前实现边界
+
+- 沙箱是本地 `subprocess + resource + timeout`，适合 MVP。
+- 生产建议改为 Docker 一次性容器隔离（CPU/内存/网络/只读根目录限制）。
