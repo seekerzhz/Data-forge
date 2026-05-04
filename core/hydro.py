@@ -15,9 +15,10 @@ def _normalize_statement(markdown: str, problem: ProblemMeta) -> str:
     if not md.startswith("#"):
         md = f"# {problem.title}\n\n" + md
 
-    if "输入格式" not in md:
+    # 始终追加结构化输入输出，避免上游 markdown 字段缺失导致题面看不到对应段落。
+    if problem.input_spec.strip():
         md += f"\n\n## 输入格式\n\n{problem.input_spec.strip()}\n"
-    if "输出格式" not in md:
+    if problem.output_spec.strip():
         md += f"\n\n## 输出格式\n\n{problem.output_spec.strip()}\n"
     return md.strip() + "\n"
 

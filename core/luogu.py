@@ -64,16 +64,43 @@ class LuoguClient:
         memory_limit = f"{limits.get('memory', 128)}MB" if limits.get("memory") else "128MB"
 
         content = current_data.get("content", {})
-        description = content.get("description", "")
-        input_spec = content.get("input", "")
-        output_spec = content.get("output", "")
-        statement_md = current_data.get("translation", "") or content.get("description", "")
+        if isinstance(content, str):
+            content = {"description": content}
+
+        description = (
+            content.get("description")
+            or content.get("statement")
+            or content.get("problemDescription")
+            or ""
+        )
+        input_spec = (
+            content.get("input")
+            or content.get("inputFormat")
+            or content.get("input_description")
+            or ""
+        )
+        output_spec = (
+            content.get("output")
+            or content.get("outputFormat")
+            or content.get("output_description")
+            or ""
+        )
 
         tags = [x.get("name", "") for x in (current_data.get("tags") or []) if x.get("name")]
+        samples_raw = content.get("samples") or current_data.get("samples") or []
         samples = [
             SampleCase(input_data=s.get("input", ""), output_data=s.get("output", ""))
-            for s in (content.get("samples") or [])
+            for s in samples_raw if isinstance(s, dict)
         ]
+
+        # 若 NEXT_DATA 未给出输入输出，使用样例和结构化字段兜底拼接。
+        statement_md = current_data.get("translation", "") or current_data.get("statement", "") or ""
+        if not statement_md:
+            statement_md = f"## 题目描述\n\n{description}"
+        if "输入格式" not in statement_md and input_spec:
+            statement_md += f"\n\n## 输入格式\n\n{input_spec}"
+        if "输出格式" not in statement_md and output_spec:
+            statement_md += f"\n\n## 输出格式\n\n{output_spec}"
 
         return ProblemMeta(
             pid=pid,
