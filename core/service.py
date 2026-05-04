@@ -32,16 +32,25 @@ class ForgeService:
             return fallback_from_raw(pid, title or pid, raw_text)
 
     @staticmethod
-    def _collect_and_flatten_inputs(data_dir: Path) -> int:
-        input_files = [p for p in data_dir.rglob("*.in") if p.is_file()]
+    def _collect_and_flatten_inputs(problem_dir: Path, data_dir: Path) -> int:
+        input_files = [
+            p for p in problem_dir.rglob("*.in")
+            if p.is_file() and "build" not in p.parts and "source" not in p.parts
+        ]
         if not input_files:
             return 0
-        input_files.sort()
-        for idx, src in enumerate(input_files, 1):
+        seen = set()
+        unique_files = []
+        for f in sorted(input_files):
+            key = str(f.resolve())
+            if key not in seen:
+                seen.add(key)
+                unique_files.append(f)
+        for idx, src in enumerate(unique_files, 1):
             dst = data_dir / f"{idx}.in"
             if src.resolve() != dst.resolve():
                 shutil.copyfile(src, dst)
-        return len(input_files)
+        return len(unique_files)
 
     @staticmethod
     def _preview_outputs(data_dir: Path, limit: int = 3) -> list[dict[str, str]]:
@@ -70,9 +79,9 @@ class ForgeService:
         for i in range(1, num_cases + 1):
             run_generator_in_sandbox(problem_dir, "source/generator.py", i)
 
-        in_count = self._collect_and_flatten_inputs(data_dir)
+        in_count = self._collect_and_flatten_inputs(problem_dir, data_dir)
         if in_count == 0:
-            raise RuntimeError("生成器未产出任何 .in 文件，请检查 LLM 生成脚本")
+            raise RuntimeError("未找到任何 .in 文件：请检查生成器是否写入了非 .in 后缀或写到了受限目录")
 
         runner = PipelineRunner(data_dir)
         runner.compile_solution(str((source_dir / "solution.cpp").resolve()), "solution")
