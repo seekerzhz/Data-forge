@@ -39,7 +39,6 @@ class LuoguClient:
         resp = self.session.get(url, timeout=20)
         resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "html.parser")
-
         next_data = self._extract_next_data(soup)
         if next_data:
             return self._parse_from_next_data(pid, next_data)
@@ -58,13 +57,33 @@ class LuoguClient:
     @staticmethod
     def _extract_samples_from_markdown(md: str) -> list[SampleCase]:
         samples: list[SampleCase] = []
-        pattern = re.compile(
-            r"###\s*输入\s*#?\d+\s*```\s*(.*?)\s*```\s*###\s*输出\s*#?\d+\s*```\s*(.*?)\s*```",
-            flags=re.DOTALL,
-        )
+        # 兼容 ### 输入 #1 / ### 输出 #1
+        pattern = re.compile(r"###\s*输入[^\n]*\n+```[\w]*\n(.*?)\n```\s*###\s*输出[^\n]*\n+```[\w]*\n(.*?)\n```", re.DOTALL)
         for m in pattern.finditer(md):
             samples.append(SampleCase(input_data=m.group(1).strip(), output_data=m.group(2).strip()))
         return samples
+
+    @staticmethod
+    def _build_statement_markdown(title: str, content: dict, samples: list[SampleCase]) -> str:
+        bg = content.get("background", "")
+        desc = content.get("description") or content.get("statement") or content.get("problemDescription") or ""
+        inp = content.get("input") or content.get("inputFormat") or content.get("input_description") or ""
+        out = content.get("output") or content.get("outputFormat") or content.get("output_description") or ""
+        hint = content.get("hint") or content.get("explanation") or ""
+
+        parts = [f"# {title}"]
+        if bg:
+            parts += ["\n## 题目背景\n", bg]
+        parts += ["\n## 题目描述\n", desc]
+        parts += ["\n## 输入格式\n", inp]
+        parts += ["\n## 输出格式\n", out]
+
+        for i, s in enumerate(samples, 1):
+            parts += [f"\n## 输入输出样例 #{i}\n", f"### 输入 #{i}\n", f"```\n{s.input_data}\n```\n", f"### 输出 #{i}\n", f"```\n{s.output_data}\n```\n"]
+
+        if hint:
+            parts += ["\n## 说明/提示\n", hint]
+        return "\n".join(parts).strip() + "\n"
 
     def _parse_from_next_data(self, pid: str, payload: dict) -> ProblemMeta:
         page = payload.get("props", {}).get("pageProps", {})
@@ -86,15 +105,9 @@ class LuoguClient:
         samples_raw = content.get("samples") or current_data.get("samples") or []
         samples = [SampleCase(input_data=s.get("input", ""), output_data=s.get("output", "")) for s in samples_raw if isinstance(s, dict)]
 
-        statement_md = current_data.get("translation", "") or current_data.get("statement", "") or ""
-        if not statement_md:
-            statement_md = f"## 题目描述\n\n{description}"
+        statement_md = self._build_statement_markdown(title, content, samples)
         if not samples:
             samples = self._extract_samples_from_markdown(statement_md)
-        if "输入格式" not in statement_md and input_spec:
-            statement_md += f"\n\n## 输入格式\n\n{input_spec}"
-        if "输出格式" not in statement_md and output_spec:
-            statement_md += f"\n\n## 输出格式\n\n{output_spec}"
 
         return ProblemMeta(pid=pid, title=title, time_limit=time_limit, memory_limit=memory_limit, description=description, input_spec=input_spec, output_spec=output_spec, statement_markdown=statement_md, tags=tags, samples=samples)
 
@@ -111,7 +124,7 @@ class LuoguClient:
         output_spec = sections.get("输出格式", "")
         samples = self._parse_samples(soup)
         tags = [x.get_text(strip=True) for x in soup.select("a[href*='/tag/']")]
-        statement_md = f"# {title}\n\n## 题目描述\n\n{description}\n\n## 输入格式\n\n{input_spec}\n\n## 输出格式\n\n{output_spec}\n"
+        statement_md = self._build_statement_markdown(title, {"description": description, "input": input_spec, "output": output_spec}, samples)
         return ProblemMeta(pid=pid, title=title, time_limit=time_limit, memory_limit=memory_limit, description=description, input_spec=input_spec, output_spec=output_spec, statement_markdown=statement_md, tags=tags, samples=samples)
 
     @staticmethod
@@ -143,7 +156,7 @@ def fallback_from_raw(pid: str, title: str, raw_text: str) -> ProblemMeta:
     chunks: dict[str, str] = {"题目描述": ""}
     current = "题目描述"
     for line in raw_text.splitlines():
-        if line.strip() in {"题目描述", "输入格式", "输出格式"}:
+        if line.strip() in {"题目背景", "题目描述", "输入格式", "输出格式", "说明/提示"}:
             current = line.strip()
             chunks.setdefault(current, "")
             continue

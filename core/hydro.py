@@ -24,7 +24,7 @@ def _normalize_statement(markdown: str, problem: ProblemMeta) -> str:
 
 
 def _append_samples(markdown: str, problem: ProblemMeta) -> str:
-    if not problem.samples:
+    if not problem.samples or "输入输出样例 #1" in markdown:
         return markdown
     parts = [markdown.strip()]
     for i, sample in enumerate(problem.samples, 1):
