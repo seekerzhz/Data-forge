@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import shutil
 from pathlib import Path
 
@@ -22,6 +23,36 @@ class ForgeService:
         self.solution_builder = SolutionBuilder(self.llm, Path("prompts/solution.txt"))
         self.luogu = LuoguClient(cookie=None)
 
+    @staticmethod
+    def parse_statement(problem_id: str, statement_markdown: str) -> ProblemMeta:
+        title_match = re.search(r"^#\s*(.+)$", statement_markdown, flags=re.MULTILINE)
+        title = title_match.group(1).strip() if title_match else problem_id
+
+        def sec(name: str) -> str:
+            m = re.search(rf"##\s*{re.escape(name)}\s*(.*?)(?=\n##\s|\Z)", statement_markdown, flags=re.S)
+            return m.group(1).strip() if m else ""
+
+        description = sec("题目描述") or sec("Description")
+        input_spec = sec("输入格式") or sec("Input")
+        output_spec = sec("输出格式") or sec("Output")
+        sample_pairs = []
+        pattern = re.compile(r"###\s*输入\s*#?\d+\s*```\s*(.*?)\s*```\s*###\s*输出\s*#?\d+\s*```\s*(.*?)\s*```", re.S)
+        for m in pattern.finditer(statement_markdown):
+            from core.models import SampleCase
+            sample_pairs.append(SampleCase(m.group(1).strip(), m.group(2).strip()))
+
+        return ProblemMeta(
+            pid=problem_id,
+            title=title,
+            time_limit="1s",
+            memory_limit="128MB",
+            description=description,
+            input_spec=input_spec,
+            output_spec=output_spec,
+            statement_markdown=statement_markdown,
+            samples=sample_pairs,
+        )
+
     def get_problem(self, problem: str, raw_text: str | None = None, title: str | None = None) -> ProblemMeta:
         try:
             return self.luogu.fetch(problem)
@@ -33,35 +64,23 @@ class ForgeService:
 
     @staticmethod
     def _collect_and_flatten_inputs(problem_dir: Path, data_dir: Path) -> int:
-        input_files = [
-            p for p in problem_dir.rglob("*.in")
-            if p.is_file() and "build" not in p.parts and "source" not in p.parts
-        ]
+        input_files = [p for p in problem_dir.rglob("*.in") if p.is_file() and "build" not in p.parts and "source" not in p.parts]
         if not input_files:
             return 0
-        seen = set()
-        unique_files = []
-        for f in sorted(input_files):
-            key = str(f.resolve())
-            if key not in seen:
-                seen.add(key)
-                unique_files.append(f)
-        for idx, src in enumerate(unique_files, 1):
+        for idx, src in enumerate(sorted(set(input_files)), 1):
             dst = data_dir / f"{idx}.in"
             if src.resolve() != dst.resolve():
                 shutil.copyfile(src, dst)
-        return len(unique_files)
+        return len(set(input_files))
 
     @staticmethod
     def _preview_outputs(data_dir: Path, limit: int = 3) -> list[dict[str, str]]:
-        items: list[dict[str, str]] = []
-        for out_file in sorted(data_dir.glob("*.out"))[:limit]:
-            content = out_file.read_text(encoding="utf-8", errors="ignore").strip()
-            items.append({"file": out_file.name, "preview": content[:300]})
-        return items
+        return [
+            {"file": out_file.name, "preview": out_file.read_text(encoding="utf-8", errors="ignore").strip()[:300]}
+            for out_file in sorted(data_dir.glob("*.out"))[:limit]
+        ]
 
-    def run_mvp(self, problem: str, workspace: Path, num_cases: int = 15, include_samples: bool = True) -> dict:
-        meta = self.get_problem(problem)
+    def run_with_meta(self, meta: ProblemMeta, workspace: Path, num_cases: int = 15, include_samples: bool = True) -> dict:
         problem_dir = workspace / meta.pid
         source_dir = problem_dir / "source"
         data_dir = problem_dir / "testdata"
@@ -69,9 +88,7 @@ class ForgeService:
         for d in (source_dir, data_dir, build_dir):
             d.mkdir(parents=True, exist_ok=True)
 
-        text = meta.statement_markdown.strip() or (
-            f"# {meta.title}\n\n## 题目描述\n\n{meta.description}\n\n## 输入格式\n\n{meta.input_spec}\n\n## 输出格式\n\n{meta.output_spec}"
-        )
+        text = meta.statement_markdown.strip() or f"# {meta.title}\n\n## 题目描述\n\n{meta.description}"
         write_text(problem_dir / "problem_zh.md", text + "\n")
         script = self.generator_builder.build(text, num_cases, 2, 2, max(1, num_cases // 2), max(1, num_cases // 3))
         write_text(source_dir / "generator.py", script)
@@ -91,12 +108,7 @@ class ForgeService:
         cache_key = hashlib.md5(f"{meta.pid}-{num_cases}-{include_samples}".encode()).hexdigest()[:12]
         zip_path = build_dir / f"{meta.pid}_{cache_key}.zip"
         build_hydro_package(meta, data_dir, zip_path)
-        return {
-            "zip_path": str(zip_path),
-            "pid": meta.pid,
-            "title": meta.title,
-            "inputs": in_count,
-            "outputs": len(outputs),
-            "skipped": len(skipped),
-            "output_preview": self._preview_outputs(data_dir),
-        }
+        return {"zip_path": str(zip_path), "pid": meta.pid, "title": meta.title, "inputs": in_count, "outputs": len(outputs), "skipped": len(skipped), "output_preview": self._preview_outputs(data_dir)}
+
+    def run_mvp(self, problem: str, workspace: Path, num_cases: int = 15, include_samples: bool = True) -> dict:
+        return self.run_with_meta(self.get_problem(problem), workspace, num_cases, include_samples)
