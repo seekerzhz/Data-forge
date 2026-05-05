@@ -41,7 +41,7 @@ def _keep_image_hyperlinks(markdown: str) -> str:
     return re.sub(r"!\[([^\]]*)\]\(([^)]+)\)", r"[\1](\2)", markdown)
 
 
-def build_hydro_package(problem: ProblemMeta, workspace: Path, out_zip: Path) -> Path:
+def build_hydro_package(problem: ProblemMeta, workspace: Path, out_zip: Path, solution_path: Path | None = None) -> Path:
     root = workspace / f"{problem.pid}"
     testdata = root / "testdata"
     root.mkdir(parents=True, exist_ok=True)
@@ -57,6 +57,8 @@ def build_hydro_package(problem: ProblemMeta, workspace: Path, out_zip: Path) ->
     md = _append_samples(md, problem)
     md = _keep_image_hyperlinks(md)
     (root / "problem_zh.md").write_text(md, encoding="utf-8")
+    if solution_path and solution_path.exists():
+        shutil.copyfile(solution_path, root / "solution.cpp")
 
     config = {
         "type": "default",

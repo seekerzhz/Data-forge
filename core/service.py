@@ -27,6 +27,8 @@ class ForgeService:
     def parse_statement(problem_id: str, statement_markdown: str) -> ProblemMeta:
         title_match = re.search(r"^#\s*(.+)$", statement_markdown, flags=re.MULTILINE)
         title = title_match.group(1).strip() if title_match else problem_id
+        pid_match = re.search(r"(P\d+)", title, flags=re.I)
+        pid = (problem_id or "").strip() or (pid_match.group(1).upper() if pid_match else "P0000")
 
         def sec(name: str) -> str:
             m = re.search(rf"##\s*{re.escape(name)}\s*(.*?)(?=\n##\s|\Z)", statement_markdown, flags=re.S)
@@ -42,7 +44,7 @@ class ForgeService:
             sample_pairs.append(SampleCase(m.group(1).strip(), m.group(2).strip()))
 
         return ProblemMeta(
-            pid=problem_id,
+            pid=pid,
             title=title,
             time_limit="1s",
             memory_limit="128MB",
@@ -106,8 +108,9 @@ class ForgeService:
         outputs, skipped = runner.produce_outputs("./solution")
 
         cache_key = hashlib.md5(f"{meta.pid}-{num_cases}-{include_samples}".encode()).hexdigest()[:12]
-        zip_path = build_dir / f"{meta.pid}_{cache_key}.zip"
-        build_hydro_package(meta, data_dir, zip_path)
+        safe_title = re.sub(r"[^\w\-\u4e00-\u9fff]+", "-", meta.title).strip("-")[:50]
+        zip_path = build_dir / f"{meta.pid}-{safe_title}-{cache_key}.zip"
+        build_hydro_package(meta, data_dir, zip_path, solution_path=source_dir / "solution.cpp")
         return {"zip_path": str(zip_path), "pid": meta.pid, "title": meta.title, "inputs": in_count, "outputs": len(outputs), "skipped": len(skipped), "output_preview": self._preview_outputs(data_dir)}
 
     def run_mvp(self, problem: str, workspace: Path, num_cases: int = 15, include_samples: bool = True) -> dict:

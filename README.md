@@ -48,3 +48,7 @@ uvicorn webapp:app --host 0.0.0.0 --port 8000 --reload
 
 - 系统支持后台队列式处理（任务状态：`pending/running/success/failed`）。
 - 仍保留 `POST /generate`（按题号抓取）供兼容，但不推荐作为主流程。
+
+
+- ZIP 命名规则：`题号-题目名-哈希.zip`。
+- 压缩包中附带 `solution.cpp`（标准解法）。
