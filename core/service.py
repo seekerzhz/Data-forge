@@ -55,6 +55,16 @@ class ForgeService:
     def parse_statement(problem_id: str, statement_markdown: str) -> ProblemMeta:
         title_match = re.search(r"^#\s*(.+)$", statement_markdown, flags=re.MULTILINE)
         title = title_match.group(1).strip() if title_match else (problem_id or "Untitled Problem")
+        generic_titles = {"题目描述", "未命名", "untitled problem", "title", "problem"}
+        if title.lower() in generic_titles:
+            fallback = re.search(r"##\s*题目描述\s*(.+)", statement_markdown)
+            if fallback:
+                rough = re.sub(r"[。！？!?].*", "", fallback.group(1)).strip()
+                if rough:
+                    title = rough[:30]
+            if title.lower() in generic_titles:
+                title = (problem_id or "未命名题目").strip() or "未命名题目"
+
         pid_match = re.search(r"(P\d+)", title, flags=re.I)
         pid = (problem_id or "").strip() or (pid_match.group(1).upper() if pid_match else "")
 
