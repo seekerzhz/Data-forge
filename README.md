@@ -14,18 +14,21 @@ pip install -r requirements.txt
 uvicorn webapp:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-打开 `http://127.0.0.1:8000`，可连续添加多个题面并一次提交。
+打开 `http://127.0.0.1:8000`，可不断粘贴题面并逐个提交；每个任务完成后会自动触发 ZIP 下载。
 
 ## 状态
 
 - `waiting`：等待
 - `processing`：处理中
-- `done`：已完成
+- `done`：已完成（即将自动下载）
+- `finished`：下载触发后任务结束
 - `failed`：失败
 
 ## 接口
 
 - `POST /tasks`：提交单题面
-- `POST /tasks/batch`：批量提交题面
 - `GET /tasks/{task_id}`：查询状态
 - `GET /download/{task_id}`：下载 ZIP
+
+
+说明：服务端采用多 worker（并发）+ 内存队列，提交不会阻塞页面继续操作。
