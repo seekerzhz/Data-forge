@@ -31,6 +31,7 @@ def worker() -> None:
         TASKS[task_id] = {"status": "processing", "progress": "处理中"}
         try:
             result = service.run_with_statement(pid, statement, Path("workspace/tasks") / task_id, num_cases)
+            result.pop("status", None)
             TASKS[task_id] = {"status": "done", "progress": "已完成，准备下载", **result}
         except Exception as e:
             TASKS[task_id] = {"status": "failed", "progress": str(e)}
