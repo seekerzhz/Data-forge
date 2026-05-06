@@ -6,13 +6,38 @@ import shutil
 from pathlib import Path
 
 from core.generator import GeneratorBuilder
-from core.hydro import build_hydro_package
+import zipfile
+import yaml
 from core.llm import LLMClient, LLMConfig
 from core.models import ProblemMeta, SampleCase
 from core.runner import PipelineRunner
 from core.sandbox import run_generator_in_sandbox
 from core.solution import SolutionBuilder
 from core.utils import read_text, write_text
+
+
+def _package(meta: ProblemMeta, data_dir: Path, zip_path: Path, solution_path: Path) -> None:
+    root = data_dir / (meta.pid if meta.pid else "problem")
+    td = root / "testdata"
+    root.mkdir(parents=True, exist_ok=True)
+    td.mkdir(parents=True, exist_ok=True)
+    py = {"title": meta.title, "tag": meta.tags}
+    if meta.pid:
+        py["pid"] = meta.pid
+    (root/"problem.yaml").write_text(yaml.safe_dump(py, allow_unicode=True), encoding="utf-8")
+    (root/"problem_zh.md").write_text((meta.statement_markdown or f"# {meta.title}").strip()+"\n", encoding="utf-8")
+    if solution_path.exists():
+        shutil.copyfile(solution_path, root/"solution.cpp")
+    (td/"config.yaml").write_text(yaml.safe_dump({"type":"default","time":meta.time_limit.lower().replace(" ",""),"memory":meta.memory_limit.lower().replace(" ",""),"checker_type":"default"}, allow_unicode=True), encoding="utf-8")
+    for f in data_dir.glob("*.in"):
+        shutil.copyfile(f, td/f.name)
+        o=f.with_suffix('.out')
+        if o.exists(): shutil.copyfile(o, td/o.name)
+    zip_path.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for p in root.rglob("*"):
+            zf.write(p, p.relative_to(data_dir))
+
 
 
 class ForgeService:
@@ -87,5 +112,5 @@ class ForgeService:
         key = hashlib.md5(f"{meta.title}-{num_cases}".encode()).hexdigest()[:8]
         prefix = f"{meta.pid}-" if meta.pid else ""
         zip_path = build_dir / f"{prefix}{safe_title}-{key}.zip"
-        build_hydro_package(meta, data_dir, zip_path, solution_path=source_dir / "solution.cpp")
+        _package(meta, data_dir, zip_path, source_dir / "solution.cpp")
         return {"zip_path": str(zip_path), "status": "success", "inputs": in_count, "outputs": len(outputs), "skipped": len(skipped)}
