@@ -31,7 +31,7 @@ class ForgeService:
         title_match = re.search(r"^#\s*(.+)$", statement_markdown, flags=re.MULTILINE)
         title = title_match.group(1).strip() if title_match else (problem_id or "Untitled Problem")
         pid_match = re.search(r"(P\d+)", title, flags=re.I)
-        pid = (problem_id or "").strip() or (pid_match.group(1).upper() if pid_match else "P0000")
+        pid = (problem_id or "").strip() or (pid_match.group(1).upper() if pid_match else "")
 
         def sec(name: str) -> str:
             m = re.search(rf"##\s*{re.escape(name)}\s*(.*?)(?=\n##\s|\Z)", statement_markdown, flags=re.S)
@@ -62,7 +62,8 @@ class ForgeService:
     def run_with_statement(self, pid: str, raw_statement: str, workspace: Path, num_cases: int = 15) -> dict:
         polished = self.polish_statement(raw_statement)
         meta = self.parse_statement(pid, polished)
-        problem_dir = workspace / meta.pid
+        folder = meta.pid if meta.pid else "no_pid"
+        problem_dir = workspace / folder
         source_dir, data_dir, build_dir = problem_dir / "source", problem_dir / "testdata", problem_dir / "build"
         for d in (source_dir, data_dir, build_dir):
             d.mkdir(parents=True, exist_ok=True)
@@ -83,7 +84,8 @@ class ForgeService:
         outputs, skipped = runner.produce_outputs("./solution")
 
         safe_title = re.sub(r"[^\w\-\u4e00-\u9fff]+", "-", meta.title).strip("-")[:50]
-        key = hashlib.md5(f"{meta.pid}-{num_cases}".encode()).hexdigest()[:8]
-        zip_path = build_dir / f"{meta.pid}-{safe_title}-{key}.zip"
+        key = hashlib.md5(f"{meta.title}-{num_cases}".encode()).hexdigest()[:8]
+        prefix = f"{meta.pid}-" if meta.pid else ""
+        zip_path = build_dir / f"{prefix}{safe_title}-{key}.zip"
         build_hydro_package(meta, data_dir, zip_path, solution_path=source_dir / "solution.cpp")
         return {"zip_path": str(zip_path), "status": "success", "inputs": in_count, "outputs": len(outputs), "skipped": len(skipped)}
