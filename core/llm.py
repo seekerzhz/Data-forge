@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -11,7 +11,7 @@ load_dotenv()
 
 @dataclass
 class LLMConfig:
-    provider: str = "ark"
+    provider: str = field(default_factory=lambda: os.getenv("LLM_PROVIDER", "ark"))
     model: str | None = None
     temperature: float = 0.1
 
