@@ -26,6 +26,8 @@ class LLMClient:
     def _default_model(provider: str) -> str:
         if provider == "ark":
             return os.getenv("ARK_MODEL", "doubao-seed-1-6-250615")
+        if provider == "openai_compatible":
+            return os.getenv("OPENAI_COMPAT_MODEL", "deepseek-chat")
         return os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
     @staticmethod
@@ -38,6 +40,15 @@ class LLMClient:
                 api_key=api_key,
                 base_url=os.getenv("ARK_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3"),
             )
+
+        if provider == "openai_compatible":
+            api_key = os.getenv("OPENAI_COMPAT_API_KEY")
+            if not api_key:
+                raise ValueError("缺少 OPENAI_COMPAT_API_KEY，请在 .env 或环境变量中配置")
+            base_url = os.getenv("OPENAI_COMPAT_BASE_URL")
+            if not base_url:
+                raise ValueError("缺少 OPENAI_COMPAT_BASE_URL，请在 .env 或环境变量中配置")
+            return OpenAI(api_key=api_key, base_url=base_url)
 
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
