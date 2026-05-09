@@ -41,8 +41,9 @@ def _package(meta: ProblemMeta, data_dir: Path, zip_path: Path, solution_path: P
 
 
 class ForgeService:
-    def __init__(self, provider: str = "ark", model: str | None = None, temperature: float = 0.1):
-        self.llm = LLMClient(LLMConfig(provider=provider, model=model, temperature=temperature))
+    def __init__(self, provider: str | None = None, model: str | None = None, temperature: float = 0.1):
+        selected_provider = provider or LLMConfig().provider
+        self.llm = LLMClient(LLMConfig(provider=selected_provider, model=model, temperature=temperature))
         self.generator_builder = GeneratorBuilder(self.llm, Path("prompts/generator.txt"))
         self.solution_builder = SolutionBuilder(self.llm, Path("prompts/solution.txt"))
         self.statement_system_prompt = read_text(Path("prompts/statement_polish.txt"))

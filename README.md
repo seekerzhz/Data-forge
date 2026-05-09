@@ -12,7 +12,7 @@
 
 - Python 3.10+
 - Linux / macOS（`resource` 沙箱依赖 Unix）
-- 可用的 LLM API Key（Ark 或 OpenAI）
+- 可用的 LLM API Key（Ark / OpenAI / OpenAI-Compatible）
 
 安装依赖：
 
@@ -30,19 +30,40 @@ uvicorn webapp:app --host 0.0.0.0 --port 8000 --reload
 请在项目根目录创建 `.env` 文件：
 
 ```env
-# 二选一：Ark 或 OpenAI
+# 可选 1：Ark
 ARK_API_KEY=your-ark-key
 ARK_MODEL=doubao-seed-1-6-250615
 ARK_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
 
-# 如果你用 OpenAI：
+# 可选 2：OpenAI
 # OPENAI_API_KEY=your-openai-key
 # OPENAI_MODEL=gpt-4o-mini
+
+# 可选 3：OpenAI-Compatible（支持 DeepSeek / 通义千问 / 智谱 / Groq 等）
+# OPENAI_COMPAT_API_KEY=your-compat-key
+# OPENAI_COMPAT_BASE_URL=https://api.deepseek.com/v1
+# OPENAI_COMPAT_MODEL=deepseek-chat
+
+# 统一 provider 开关（推荐）
+# LLM_PROVIDER=openai_compatible
 ```
 
 说明：
 - 代码会自动读取 `.env`。
 - `.env` 已加入 `.gitignore`，不会被提交到仓库。.
+
+Provider 选择方式（推荐在 `.env` 里设置，不用改代码）：
+- `ark`：火山引擎 Ark（默认）
+- `openai`：OpenAI 官方
+- `openai_compatible`：任意兼容 OpenAI Chat Completions 协议的服务
+
+也就是说：修改 `.env` 中的 `LLM_PROVIDER` 即可切换 provider；不需要手动改 `LLMConfig` 代码。
+
+常见模型示例（`OPENAI_COMPAT_MODEL` 可直接填写）：
+- DeepSeek：`deepseek-chat`、`deepseek-reasoner`
+- 阿里通义千问：`qwen-plus`、`qwen-turbo`
+- 智谱：`glm-4-plus`、`glm-4-flash`
+- Groq（常见开源模型）：`llama-3.3-70b-versatile`、`mixtral-8x7b-32768`
 
 ---
 
