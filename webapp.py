@@ -22,7 +22,7 @@ WORKERS = 3
 class TaskReq(BaseModel):
     pid: str = ""
     statement_markdown: str
-    num_cases: int = 15
+    num_cases: int = 20
 
 
 def worker() -> None:
@@ -55,6 +55,7 @@ function addItem(){
   const d=document.createElement('div');
   d.id=id;
   d.innerHTML=`<hr><input class='pid' placeholder='题号可空'>
+  <input class='num_cases' type='number' min='1' value='20' style='width:90px' title='数据组数'>
   <button class='submit'>提交本题面</button>
   <span class='status'>waiting-edit</span><br>
   <textarea class='md' rows='10' cols='90' placeholder='粘贴题面'></textarea>`;
@@ -65,10 +66,12 @@ addItem();
 
 async function submitOne(d){
   const pid=d.querySelector('.pid').value;
+  const numCases=Number(d.querySelector('.num_cases').value || 20);
   const md=d.querySelector('.md').value;
   if(!md.trim()){alert('题面不能为空');return;}
+  if(!Number.isInteger(numCases) || numCases<=0){alert('数据组数必须是正整数');return;}
   d.querySelector('.status').textContent='waiting';
-  const r=await fetch('/tasks',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({pid:pid,statement_markdown:md})});
+  const r=await fetch('/tasks',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({pid:pid,statement_markdown:md,num_cases:numCases})});
   const j=await r.json();
   d.dataset.taskId=j.task_id;
   poll(d, j.task_id);

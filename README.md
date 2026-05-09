@@ -105,9 +105,11 @@ uvicorn webapp:app --host 0.0.0.0 --port 8000 --reload
 {
   "pid": "P1001",
   "statement_markdown": "# P1001 A+B Problem\n\n## 题目描述\n...",
-  "num_cases": 15
+  "num_cases": 20
 }
 ```
+
+说明：前端页面默认会提交 `num_cases=20`，也可以手动改成你想要的组数。
 
 ### 查询状态
 `GET /tasks/{task_id}`
