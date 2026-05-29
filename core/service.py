@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import re
 import shutil
 import zipfile
@@ -12,7 +11,7 @@ import yaml
 from core.generator import GeneratorBuilder
 from core.llm import LLMClient, LLMConfig
 from core.models import ProblemMeta, SampleCase
-from core.naming import sanitize_pid, sanitize_slug
+from core.naming import build_problem_artifact_name, sanitize_pid
 from core.runner import PipelineRunner
 from core.sandbox import run_generator_in_sandbox
 from core.solution import SolutionBuilder
@@ -31,7 +30,7 @@ def _package(meta: ProblemMeta, data_dir: Path, zip_path: Path, solution_path: P
     Returns:
         None. The ZIP archive is written to `zip_path`.
     """
-    root_name = sanitize_pid(meta.pid) or "problem"
+    root_name = build_problem_artifact_name(meta.pid, meta.title)
     root = data_dir / root_name
     testdata_dir = root / "testdata"
     if root.exists():
@@ -189,7 +188,7 @@ class ForgeService:
         polished = self.polish_statement(raw_statement)
         report("解析题面", 22)
         meta = self.parse_statement(pid, polished)
-        folder = meta.pid if meta.pid else "no_pid"
+        folder = build_problem_artifact_name(meta.pid, meta.title, fallback="no_pid")
         problem_dir = workspace / folder
         source_dir, data_dir, build_dir = problem_dir / "source", problem_dir / "testdata", problem_dir / "build"
         for d in (source_dir, data_dir, build_dir):
@@ -225,10 +224,8 @@ class ForgeService:
         outputs, skipped = runner.produce_outputs("./solution")
 
         report("打包 ZIP", 96)
-        safe_title = sanitize_slug(meta.title, fallback="problem", max_length=50)
-        key = hashlib.sha256(f"{meta.title}-{num_cases}".encode()).hexdigest()[:8]
-        prefix = f"{meta.pid}-" if meta.pid else ""
-        zip_path = build_dir / f"{prefix}{safe_title}-{key}.zip"
+        zip_name = build_problem_artifact_name(meta.pid, meta.title, max_length=70)
+        zip_path = build_dir / f"{zip_name}.zip"
         _package(meta, data_dir, zip_path, source_dir / "solution.cpp")
         report("完成", 100)
         return {"zip_path": str(zip_path), "status": "success", "inputs": in_count, "outputs": len(outputs), "skipped": len(skipped)}

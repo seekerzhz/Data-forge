@@ -6,6 +6,7 @@ from typing import Any
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.background import BackgroundTask
 
 from core.utils import read_text
 from webui.schemas import TaskReq
@@ -52,6 +53,11 @@ def create_app(task_queue: TaskQueue | None = None) -> FastAPI:
         zip_path = Path(zip_path_value).resolve()
         if not zip_path.is_file():
             raise HTTPException(404, "file not found")
-        return FileResponse(zip_path, filename=zip_path.name, media_type="application/zip")
+        return FileResponse(
+            zip_path,
+            filename=zip_path.name,
+            media_type="application/zip",
+            background=BackgroundTask(queue.cleanup_download, task_id),
+        )
 
     return app

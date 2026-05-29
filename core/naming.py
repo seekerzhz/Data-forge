@@ -34,3 +34,27 @@ def sanitize_pid(value: str) -> str:
     if not value.strip():
         return ""
     return sanitize_slug(value.upper(), fallback="problem", max_length=40)
+
+
+def build_problem_artifact_name(pid: str, title: str, fallback: str = "problem", max_length: int = _MAX_SLUG_LENGTH) -> str:
+    """Build a human-readable safe name for workspace folders and ZIP files.
+
+    Args:
+        pid: Sanitized or raw problem id.
+        title: Problem title extracted from the statement.
+        fallback: Name used when both pid and title are empty after sanitization.
+        max_length: Maximum returned name length.
+
+    Returns:
+        A stable, filesystem-safe name that prefers the problem title and only prefixes
+        the pid when it is not already part of the title.
+    """
+    safe_pid = sanitize_pid(pid)
+    safe_title = sanitize_slug(title, fallback="", max_length=max_length)
+
+    if safe_pid and safe_title:
+        if safe_title.upper() == safe_pid or safe_title.upper().startswith(f"{safe_pid}-"):
+            return safe_title[:max_length]
+        return f"{safe_pid}-{safe_title}"[:max_length].strip("-._")
+
+    return (safe_title or safe_pid or fallback)[:max_length]

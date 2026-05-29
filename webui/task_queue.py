@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import queue
+import shutil
 import threading
 import uuid
 from collections.abc import Callable
@@ -36,10 +37,12 @@ class TaskQueue:
     def __init__(
         self,
         workspace_root: Path = Path("workspace/tasks"),
+        download_root: Path = Path("workspace/downloads"),
         workers: int = 3,
         service_factory: Callable[[], ForgeService] = ForgeService,
     ):
         self.workspace_root = workspace_root
+        self.download_root = download_root
         self.service_factory = service_factory
         self.jobs: "queue.Queue[TaskJob]" = queue.Queue()
         self.tasks: dict[str, TaskRecord] = {}
@@ -71,6 +74,10 @@ class TaskQueue:
             record.percent = 100
             return True
 
+    def cleanup_download(self, task_id: str) -> None:
+        """Remove the temporary downloaded ZIP directory for a completed task."""
+        self._remove_tree(self.download_root / task_id, self.download_root)
+
     def _set(self, task_id: str, status: str, progress: str, percent: int, **details: Any) -> None:
         percent = max(0, min(100, int(percent)))
         with self.lock:
@@ -86,6 +93,35 @@ class TaskQueue:
             if percent is not None:
                 record.percent = max(0, min(100, int(percent)))
             record.details.update(details)
+
+    def _task_workspace(self, task_id: str) -> Path:
+        """Return the isolated workspace directory for one task id."""
+        return self.workspace_root / task_id
+
+    def _remove_tree(self, path: Path, root: Path) -> None:
+        """Delete a runtime directory only when it is safely under the expected root."""
+        target = path.resolve()
+        allowed_root = root.resolve()
+        if target == allowed_root or allowed_root not in target.parents:
+            return
+        shutil.rmtree(target, ignore_errors=True)
+
+    def _clear_task_workspace(self, task_id: str) -> None:
+        """Clear generated files under `workspace/tasks` after one task ends."""
+        self._remove_tree(self._task_workspace(task_id), self.workspace_root)
+
+    def _stage_zip_for_download(self, task_id: str, zip_path: str) -> str:
+        """Move the completed ZIP out of `workspace/tasks` before clearing task files."""
+        source = Path(zip_path)
+        if not source.is_file():
+            raise FileNotFoundError(f"生成的 ZIP 不存在：{source}")
+
+        download_dir = self.download_root / task_id
+        self._remove_tree(download_dir, self.download_root)
+        download_dir.mkdir(parents=True, exist_ok=True)
+        target = download_dir / source.name
+        shutil.move(str(source), target)
+        return str(target)
 
     def _worker(self) -> None:
         """Continuously process queued jobs with one lazily-created ForgeService."""
@@ -103,13 +139,15 @@ class TaskQueue:
                 result = service.run_with_statement(
                     job.pid,
                     job.statement,
-                    self.workspace_root / job.task_id,
+                    self._task_workspace(job.task_id),
                     job.num_cases,
                     progress=report,
                 )
                 result.pop("status", None)
+                result["zip_path"] = self._stage_zip_for_download(job.task_id, result["zip_path"])
                 self._set(job.task_id, status="done", progress="已完成，准备下载", percent=100, **result)
             except Exception as exc:
                 self._update(job.task_id, status="failed", progress=str(exc), percent=100)
             finally:
+                self._clear_task_workspace(job.task_id)
                 self.jobs.task_done()
