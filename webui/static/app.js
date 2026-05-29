@@ -8,12 +8,17 @@ function setStatus(card, text, state = 'idle', percent = 0) {
   const progressBar = card.querySelector('.progress-bar');
   status.textContent = text;
   status.className = `status is-${state}`;
-  card.classList.remove('is-active', 'is-waiting', 'is-processing', 'is-done', 'is-finished', 'is-failed');
+  card.classList.remove('is-active', 'is-waiting', 'is-processing', 'is-done', 'is-finished', 'is-failed', 'is-near-complete');
   card.classList.add(`is-${state}`);
   if (['waiting', 'processing', 'done', 'finished', 'failed'].includes(state)) {
     card.classList.add('is-active');
   }
-  progressBar.style.width = `${Math.max(0, Math.min(100, Number(percent) || 0))}%`;
+  const safePercent = Math.max(0, Math.min(100, Number(percent) || 0));
+  progressBar.style.width = `${safePercent}%`;
+  card.style.setProperty('--progress-position', `${safePercent}%`);
+  if (safePercent >= 86 && ['waiting', 'processing', 'done', 'finished'].includes(state)) {
+    card.classList.add('is-near-complete');
+  }
 }
 
 function bindLabel(field, id) {
