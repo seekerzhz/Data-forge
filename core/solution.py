@@ -7,11 +7,21 @@ from core.utils import extract_code_block, read_text
 
 
 class SolutionBuilder:
+    """Build C++17 standard solutions from problem statements through the LLM."""
+
     def __init__(self, llm: LLMClient, prompt_path: Path):
         self.llm = llm
         self.template = read_text(prompt_path)
 
     def build(self, problem_statement: str) -> str:
+        """Generate C++17 standard solution source code.
+
+        Args:
+            problem_statement: Polished Markdown problem statement.
+
+        Returns:
+            Extracted C++ source code from the LLM response.
+        """
         user_prompt = self.template.replace("{{problem}}", problem_statement)
         answer = self.llm.chat(
             system_prompt=(

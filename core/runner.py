@@ -11,15 +11,28 @@ class PipelineRunner:
         self.workspace = workspace
 
     def _run(self, cmd: list[str]) -> None:
+        """Run a subprocess in the runner workspace and fail on non-zero exit."""
         subprocess.run(cmd, cwd=self.workspace, check=True)
 
-    def run_generator(self, script_name: str = "generate.py") -> None:
-        self._run(["python3", script_name])
-
     def compile_solution(self, source: str = "solution.cpp", output: str = "solution") -> None:
+        """Compile the generated C++17 standard solution.
+
+        Args:
+            source: Path to the source file, absolute or relative to the workspace.
+            output: Executable name emitted inside the workspace.
+        """
         self._run(["g++", "-std=c++17", "-O2", "-o", output, source])
 
     def produce_outputs(self, exe: str = "./solution", per_case_timeout_s: float = 5.0) -> tuple[list[Path], list[Path]]:
+        """Run the compiled solution for each `.in` file to produce `.out` files.
+
+        Args:
+            exe: Executable path relative to the workspace.
+            per_case_timeout_s: Maximum seconds allowed for each input.
+
+        Returns:
+            A tuple of produced output files and skipped input files.
+        """
         input_files = sort_input_files(list(self.workspace.glob("*.in")))
         outputs: list[Path] = []
         skipped: list[Path] = []

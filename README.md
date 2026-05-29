@@ -1,53 +1,51 @@
-# DataForge（精简并发版）
+# DataForge
 
-DataForge 是一个最小可用的 Web 工具，用于把题面 Markdown 转成可下载的 Hydro 风格数据包：
+DataForge 是一个轻量 Web 工具，用于把竞赛题面 Markdown 转换为可下载的 Hydro 风格数据包。它通过后台队列调用 LLM 生成测试数据生成器和标准解，再在受限沙箱中生成输入输出并打包 ZIP。
 
-- 前端持续提交题面，不阻塞后续输入；
-- 后端使用 LLM 润色题面、生成数据生成器与标准解；
-- 后台并发运行任务，实时返回阶段进度；
-- 任务完成后自动打包 ZIP 并触发下载。
-
----
-
-## 1. 项目结构
+## 项目结构
 
 ```text
 .
-├── core/                 # 题面解析、LLM 调用、生成器/标准解构建、沙箱运行、打包流水线
-├── prompts/              # LLM prompt 模板
-├── webui/                # FastAPI 路由、任务队列、前端静态资源
-│   ├── static/
-│   │   ├── app.js        # 前端任务提交、轮询、进度条与下载逻辑
-│   │   ├── styles.css    # iOS 扁平风格与字体栈
-│   │   └── fonts/        # 可放置授权的内置字体文件
-│   ├── app.py            # Web 路由与静态资源挂载
-│   ├── schemas.py        # 请求模型
-│   └── task_queue.py     # 后台队列、任务状态与进度数据流
-├── webapp.py             # uvicorn 兼容入口
-├── requirements.txt
-└── setup.sh
+├── core/                     # 核心流水线模块
+│   ├── generator.py          # 调用 LLM 生成 Python 数据生成器
+│   ├── llm.py                # OpenAI / Ark / OpenAI-Compatible 客户端适配
+│   ├── models.py             # 题目元数据模型
+│   ├── naming.py             # 用户输入与文件名安全净化
+│   ├── runner.py             # 编译标准解并批量生成输出
+│   ├── sandbox.py            # 受限资源环境中运行生成器
+│   ├── service.py            # 题面润色、解析、生成、打包总编排
+│   └── solution.py           # 调用 LLM 生成 C++17 标准解
+├── prompts/                  # LLM prompt 模板
+├── webui/
+│   ├── app.py                # FastAPI 路由与静态资源挂载
+│   ├── schemas.py            # 请求参数校验
+│   ├── task_queue.py         # 后台任务队列与集中任务状态
+│   └── static/
+│       ├── index.html        # 页面模板
+│       ├── styles.css        # 页面样式（不含鼠标光点/水波纹跟随效果）
+│       ├── fonts/            # 可放置授权字体文件
+│       └── js/
+│           ├── api.js        # 后端 API 服务封装
+│           ├── app.js        # 前端事件编排入口
+│           ├── store.js      # 前端集中状态和轮询定时器管理
+│           └── ui.js         # DOM 渲染、表单读取和可访问性绑定
+├── webapp.py                 # uvicorn 入口
+├── requirements.txt          # Python 依赖
+└── setup.sh                  # 虚拟环境和 .env 模板初始化脚本
 ```
 
-数据流：
+运行期产物会写入 `workspace/tasks/`，该目录已被 `.gitignore` 忽略。
 
-```text
-浏览器表单
-  -> POST /tasks
-  -> TaskQueue 写入 waiting 状态并入队
-  -> worker 调用 ForgeService.run_with_statement(progress=...)
-  -> ForgeService 在每个阶段回调进度
-  -> GET /tasks/{task_id} 返回 status/progress/percent
-  -> 前端更新状态文字与扁平进度条
-  -> done 后 GET /download/{task_id} 自动下载
-```
+## 如何运行
 
----
+### 1. 准备环境
 
-## 2. 环境准备
+要求：
 
 - Python 3.10+
-- Linux / macOS（`resource` 沙箱依赖 Unix）
-- 可用的 LLM API Key（Ark / OpenAI / OpenAI-Compatible）
+- Linux / macOS（沙箱使用 Unix `resource` 限制）
+- `g++`（用于编译 C++17 标准解）
+- 可用的 Ark、OpenAI 或 OpenAI-Compatible API Key
 
 安装依赖：
 
@@ -57,17 +55,15 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-也可以运行：
+也可以执行：
 
 ```bash
 ./setup.sh
 ```
 
----
+### 2. 配置环境变量
 
-## 3. 环境变量配置
-
-请在项目根目录创建 `.env` 文件，或运行 `./setup.sh` 生成模板：
+在项目根目录创建 `.env`：
 
 ```env
 # Provider: ark / openai / openai_compatible
@@ -82,80 +78,44 @@ ARK_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
 # OPENAI_API_KEY=your-openai-key
 # OPENAI_MODEL=gpt-4o-mini
 
-# OpenAI-Compatible（支持 DeepSeek / 通义千问 / 智谱 / Groq 等）
+# OpenAI-Compatible
 # OPENAI_COMPAT_API_KEY=your-compat-key
 # OPENAI_COMPAT_BASE_URL=https://api.deepseek.com/v1
 # OPENAI_COMPAT_MODEL=deepseek-chat
 ```
 
-说明：
-
-- 启动 Web 首页不再立即初始化 LLM；真正提交任务后，后台 worker 才会创建 `ForgeService`。
-- `.env` 已加入 `.gitignore`，不会被提交到仓库。
-
-常见 `OPENAI_COMPAT_MODEL` 示例：
-
-- DeepSeek：`deepseek-chat`、`deepseek-reasoner`
-- 阿里通义千问：`qwen-plus`、`qwen-turbo`
-- 智谱：`glm-4-plus`、`glm-4-flash`
-- Groq（常见开源模型）：`llama-3.3-70b-versatile`、`mixtral-8x7b-32768`
-
----
-
-## 4. 启动服务
+### 3. 启动 Web 服务
 
 ```bash
 uvicorn webapp:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-浏览器打开：
+浏览器打开 `http://127.0.0.1:8000`。
 
-- `http://127.0.0.1:8000`
+## 主要数据流
 
----
+```text
+浏览器表单
+  -> webui/static/js/ui.js 读取并校验输入
+  -> webui/static/js/api.js POST /tasks
+  -> webui.task_queue.TaskQueue 创建 waiting 状态并入队
+  -> 后台 worker 懒加载 core.service.ForgeService
+  -> ForgeService 润色题面、解析元数据、生成 generator.py / solution.cpp
+  -> core.sandbox 在受限环境运行 generator.py 生成 .in
+  -> core.runner 编译 solution.cpp 并为每个 .in 生成 .out
+  -> core.service 打包 Hydro ZIP
+  -> 前端轮询 GET /tasks/{task_id} 渲染进度
+  -> done 后隐藏 iframe 请求 /download/{task_id}
+  -> POST /tasks/{task_id}/finish 标记任务 finished
+```
 
-## 5. 前端与字体
+前端采用单向数据流：用户事件由 `js/app.js` 接收，调用 `js/api.js` 或更新 `js/store.js`，最后通过 `js/ui.js` 统一渲染 DOM。后端的任务队列通过 `service_factory` 注入核心服务，便于替换或测试。
 
-页面遵循 iOS 7–9 扁平风格：纯白背景、极浅灰区块、1px 分割线、无阴影/毛玻璃/渐变。
+## API 简表
 
-字体策略：
+### `POST /tasks`
 
-1. 如果需要内置“汉仪文黑-85W / HYWenHei”风格字体，请把已授权的字体文件放到：
-   - `webui/static/fonts/HYWenHei-85W.woff2`（推荐）
-   - 或 `webui/static/fonts/HYWenHei-85W.ttf`
-2. `webui/static/styles.css` 已声明 `@font-face`，会优先使用上述内置文件。
-3. 如果没有放置字体文件，浏览器会自动回退到本机安装的 HYWenHei、`PingFang SC`、SF Pro、系统 UI 字体。
-
-仓库不直接附带汉仪字体二进制文件，因为该字体通常需要单独授权后才能再分发。
-
----
-
-## 6. 使用方式（持续提交，不阻塞）
-
-页面支持：
-
-1. 点击“新的题面”；
-2. 粘贴题面并点“提交本题面”；
-3. 任务进入后台队列，卡片显示状态文字和进度条；
-4. 页面会立刻追加一张新的输入卡片，可继续粘贴下一题；
-5. 每个任务完成后自动下载 ZIP；
-6. 下载触发后任务状态变为 `finished`。
-
-任务状态：
-
-- `waiting`：排队中
-- `processing`：处理中
-- `done`：完成并准备自动下载
-- `finished`：下载已触发，任务结束
-- `failed`：失败
-
----
-
-## 7. API 接口
-
-### 提交单任务
-
-`POST /tasks`
+提交单个任务。`num_cases` 必须是 `1..100` 的整数。
 
 ```json
 {
@@ -165,11 +125,9 @@ uvicorn webapp:app --host 0.0.0.0 --port 8000 --reload
 }
 ```
 
-### 查询状态
+### `GET /tasks/{task_id}`
 
-`GET /tasks/{task_id}`
-
-返回示例：
+查询任务状态。
 
 ```json
 {
@@ -179,45 +137,27 @@ uvicorn webapp:app --host 0.0.0.0 --port 8000 --reload
 }
 ```
 
-### 标记下载完成
+### `GET /download/{task_id}`
 
-`POST /tasks/{task_id}/finish`
+下载生成好的 ZIP。任务尚未完成或文件不存在时返回 `404`。
 
-### 下载结果
+### `POST /tasks/{task_id}/finish`
 
-`GET /download/{task_id}`
+下载触发后将任务标记为 `finished`。
 
----
+## 安全与边界处理
 
-## 8. 输出目录结构
+- 前后端均限制 `num_cases <= 100`，避免单次请求过度消耗资源。
+- 用户输入的 `pid` 和题目标题在用于目录名、ZIP 名称前会经过 `core.naming` 净化，避免路径穿越和非法文件名。
+- 生成器在 `core.sandbox` 中运行，限制 CPU、内存和输出文件大小。
+- 前端不使用 `innerHTML` 渲染用户输入，状态文本通过 `textContent` 更新。
+- 页面已删除鼠标移动光点和水波纹跟随效果，仅保留任务进度条动效。
 
-每个任务在：
+## 字体说明
 
-```text
-workspace/tasks/<task_id>/
-└── <pid 或 no_pid>/
-    ├── source/
-    │   ├── generator.py
-    │   └── solution.cpp
-    ├── testdata/
-    │   ├── *.in
-    │   └── *.out
-    └── build/
-        └── <zip-file>.zip
-```
+如需内置“汉仪文黑-85W / HYWenHei”风格字体，请将已授权字体文件放入：
 
----
+- `webui/static/fonts/HYWenHei-85W.woff2`（推荐）
+- `webui/static/fonts/HYWenHei-85W.ttf`
 
-## 9. 常见问题
-
-### 1) 提交后报缺少 API Key
-
-确认 `.env` 在项目根目录，且 key 名称正确（`ARK_API_KEY`、`OPENAI_API_KEY` 或 `OPENAI_COMPAT_API_KEY`）。
-
-### 2) 任务失败：未找到 `.in`
-
-通常是 LLM 生成器脚本没有按预期产出输入文件，建议减小题目复杂度或增加题面约束描述。
-
-### 3) 为什么下载没有弹窗
-
-浏览器可能拦截自动下载。可在日志中复制 `/download/{task_id}` 手动打开。
+仓库不直接包含商业字体二进制文件；未放置字体时浏览器会回退到系统中文字体。
