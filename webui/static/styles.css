@@ -17,7 +17,9 @@
   --blue-hover: #006FE6;
   --green: #34C759;
   --danger: #FF3B30;
-  --font-display: "DataForge HYWenHei", "HYWenHei 85W", "Hanyi WenHei 85W", "汉仪文黑-85W", "HYWenHei-85W", "PingFang SC", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", Roboto, sans-serif;
+  --glow-x: 50vw;
+  --glow-y: 40vh;
+  --font-title: "Songti SC", "STSong", "Noto Serif CJK SC", "Source Han Serif SC", SimSun, "Times New Roman", serif;
   --font-text: "DataForge HYWenHei", "HYWenHei 85W", "Hanyi WenHei 85W", "汉仪文黑-85W", "HYWenHei-85W", "PingFang SC", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", Roboto, sans-serif;
 }
 
@@ -34,13 +36,69 @@ html {
 body {
   margin: 0;
   min-height: 100vh;
-  background: var(--background);
+  background:
+    radial-gradient(circle at var(--glow-x) var(--glow-y), rgba(0, 122, 255, 0.13), transparent 20rem),
+    radial-gradient(circle at calc(var(--glow-x) + 7rem) calc(var(--glow-y) + 5rem), rgba(52, 199, 89, 0.08), transparent 18rem),
+    var(--background);
   color: var(--text);
   font-family: var(--font-text);
   font-size: 16px;
   font-weight: 400;
   letter-spacing: -0.01em;
   line-height: 1.4;
+}
+
+body::before,
+body::after {
+  position: fixed;
+  left: var(--glow-x);
+  top: var(--glow-y);
+  z-index: 0;
+  pointer-events: none;
+  content: "";
+  opacity: 0;
+  transform: translate(-50%, -50%);
+}
+
+body::before {
+  width: 15px;
+  height: 15px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.98) 0 18%, rgba(0, 122, 255, 0.86) 20% 48%, rgba(0, 122, 255, 0) 72%);
+  box-shadow: 0 0 18px rgba(0, 122, 255, 0.42), 0 0 40px rgba(0, 122, 255, 0.18);
+  transition: opacity 180ms ease;
+}
+
+body::after {
+  width: 86px;
+  height: 86px;
+  border: 1px solid rgba(0, 122, 255, 0.28);
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(0, 122, 255, 0.1), rgba(0, 122, 255, 0.03) 42%, transparent 68%);
+  animation: cursor-ripple 2.6s ease-out infinite;
+  transition: opacity 220ms ease;
+}
+
+body.has-pointer-glow::before {
+  opacity: 1;
+}
+
+body.has-pointer-glow::after {
+  opacity: 0.9;
+}
+
+@keyframes cursor-ripple {
+  0% {
+    transform: translate(-50%, -50%) scale(0.46);
+    opacity: 0.62;
+  }
+  55% {
+    opacity: 0.24;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.28);
+    opacity: 0;
+  }
 }
 
 button,
@@ -51,6 +109,8 @@ textarea {
 }
 
 .app {
+  position: relative;
+  z-index: 1;
   width: 100%;
   max-width: 600px;
   margin: 0 auto;
@@ -62,12 +122,19 @@ textarea {
   border-bottom: 1px solid var(--line);
 }
 
+h1,
+h2,
+h3,
+.card-title,
+label {
+  font-family: var(--font-title);
+}
+
 h1 {
   margin: 0;
-  font-family: var(--font-display);
-  font-size: 30px;
-  font-weight: 620;
-  letter-spacing: -0.02em;
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
   line-height: 1.12;
 }
 
@@ -94,7 +161,8 @@ h1 {
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: #FFFFFF;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 18px 46px rgba(17, 17, 17, 0.04);
 }
 
 .card-header {
@@ -109,10 +177,9 @@ h1 {
 
 .card-title {
   margin: 0;
-  font-family: var(--font-display);
-  font-size: 17px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 .status {
@@ -137,33 +204,157 @@ h1 {
 }
 
 .progress {
-  height: 3px;
-  background: var(--section);
+  position: relative;
+  height: 7px;
   border-bottom: 1px solid var(--line);
   overflow: hidden;
+  background:
+    linear-gradient(90deg, rgba(0, 122, 255, 0.08) 25%, rgba(0, 122, 255, 0.18) 50%, rgba(0, 122, 255, 0.08) 75%),
+    var(--section);
+  background-size: 240% 100%, 100% 100%;
+  animation: progress-track-flow 2.6s linear infinite;
+}
+
+.progress::before,
+.progress::after {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  content: "";
+  opacity: 0;
+}
+
+.progress::before {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.72), transparent);
+  transform: translateX(-120%);
+}
+
+.progress::after {
+  right: auto;
+  width: 46px;
+  border-radius: 999px;
+  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.96), rgba(0, 122, 255, 0.4) 42%, transparent 72%);
+  filter: blur(0.4px);
+  transform: translateX(calc(var(--progress-position, 0%) - 23px));
+  transition: transform 520ms cubic-bezier(0.2, 0.8, 0.25, 1), opacity 180ms ease;
 }
 
 .progress-bar {
+  position: relative;
   width: 0%;
   height: 100%;
-  background: var(--blue);
+  overflow: hidden;
+  border-radius: 0 999px 999px 0;
+  background: linear-gradient(90deg, #007AFF, #32ADE6 48%, #5AC8FA);
+  box-shadow: 0 0 16px rgba(0, 122, 255, 0.28);
   opacity: 0;
-  transition: width 280ms ease, opacity 180ms ease, background-color 180ms ease;
+  transition: width 520ms cubic-bezier(0.2, 0.8, 0.25, 1), opacity 180ms ease, background 180ms ease, background-color 180ms ease;
 }
 
-.card.is-active .progress-bar {
+.progress-bar::before,
+.progress-bar::after {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  content: "";
+}
+
+.progress-bar::before {
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.46) 42%, rgba(255, 255, 255, 0.88) 50%, rgba(255, 255, 255, 0.4) 58%, transparent 100%);
+  transform: translateX(-120%);
+  animation: progress-shimmer 1.65s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+}
+
+.progress-bar::after {
+  background: repeating-radial-gradient(circle at 22px 50%, rgba(255, 255, 255, 0.28) 0 2px, transparent 3px 15px);
+  opacity: 0.46;
+  animation: progress-ripple 2.2s ease-in-out infinite;
+}
+
+.card.is-active .progress-bar,
+.card.is-active .progress::before,
+.card.is-active .progress::after {
   opacity: 1;
+}
+
+.card.is-active .progress::before {
+  animation: progress-sheen 2.3s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+}
+
+.card.is-near-complete .progress-bar::before,
+.card.is-near-complete .progress::before {
+  animation-duration: 3.8s;
+}
+
+.card.is-near-complete .progress::after {
+  transition-duration: 880ms;
+}
+
+.card.is-done .progress,
+.card.is-finished .progress {
+  background:
+    linear-gradient(90deg, rgba(52, 199, 89, 0.1) 25%, rgba(52, 199, 89, 0.2) 50%, rgba(52, 199, 89, 0.1) 75%),
+    var(--section);
 }
 
 .card.is-done .progress-bar,
 .card.is-finished .progress-bar {
-  background: var(--green);
+  background: linear-gradient(90deg, #34C759, #66D982);
   opacity: 1;
 }
 
 .card.is-failed .progress-bar {
-  background: var(--danger);
+  background: linear-gradient(90deg, #FF3B30, #FF6B62);
   opacity: 1;
+}
+
+@keyframes progress-track-flow {
+  from {
+    background-position: 120% 0, 0 0;
+  }
+  to {
+    background-position: -120% 0, 0 0;
+  }
+}
+
+@keyframes progress-shimmer {
+  0% {
+    transform: translateX(-120%);
+    opacity: 0;
+  }
+  18% {
+    opacity: 0.82;
+  }
+  100% {
+    transform: translateX(120%);
+    opacity: 0;
+  }
+}
+
+@keyframes progress-sheen {
+  0% {
+    transform: translateX(-120%);
+    opacity: 0;
+  }
+  18% {
+    opacity: 0.75;
+  }
+  100% {
+    transform: translateX(120%);
+    opacity: 0;
+  }
+}
+
+@keyframes progress-ripple {
+  0%,
+  100% {
+    transform: translateX(-10px) scaleY(0.88);
+    opacity: 0.3;
+  }
+  50% {
+    transform: translateX(12px) scaleY(1.1);
+    opacity: 0.58;
+  }
 }
 
 .card-body {
@@ -185,7 +376,9 @@ h1 {
 
 label {
   color: var(--secondary);
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 input,
@@ -237,16 +430,20 @@ textarea:focus {
   color: #FFFFFF;
   cursor: pointer;
   font-weight: 500;
-  transition: background-color 180ms ease, color 180ms ease, opacity 180ms ease;
+  transition: background-color 180ms ease, color 180ms ease, opacity 180ms ease, transform 180ms ease, box-shadow 180ms ease;
 }
 
 .button:hover {
   background: var(--blue-hover);
+  box-shadow: 0 8px 20px rgba(0, 122, 255, 0.18);
+  transform: translateY(-1px);
 }
 
 .button:disabled {
   cursor: default;
   opacity: 0.5;
+  transform: none;
+  box-shadow: none;
 }
 
 .button.secondary {
@@ -273,5 +470,16 @@ textarea:focus {
 
   .button {
     width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 1ms !important;
   }
 }
