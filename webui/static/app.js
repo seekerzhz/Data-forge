@@ -8,12 +8,17 @@ function setStatus(card, text, state = 'idle', percent = 0) {
   const progressBar = card.querySelector('.progress-bar');
   status.textContent = text;
   status.className = `status is-${state}`;
-  card.classList.remove('is-active', 'is-waiting', 'is-processing', 'is-done', 'is-finished', 'is-failed');
+  card.classList.remove('is-active', 'is-waiting', 'is-processing', 'is-done', 'is-finished', 'is-failed', 'is-near-complete');
   card.classList.add(`is-${state}`);
   if (['waiting', 'processing', 'done', 'finished', 'failed'].includes(state)) {
     card.classList.add('is-active');
   }
-  progressBar.style.width = `${Math.max(0, Math.min(100, Number(percent) || 0))}%`;
+  const safePercent = Math.max(0, Math.min(100, Number(percent) || 0));
+  progressBar.style.width = `${safePercent}%`;
+  card.style.setProperty('--progress-position', `${safePercent}%`);
+  if (safePercent >= 86 && ['waiting', 'processing', 'done', 'finished'].includes(state)) {
+    card.classList.add('is-near-complete');
+  }
 }
 
 function bindLabel(field, id) {
@@ -95,3 +100,25 @@ function poll(card, taskId) {
 
 addButton.addEventListener('click', addItem);
 addItem();
+
+
+let pointerFrame = null;
+let nextPointer = {x: window.innerWidth / 2, y: window.innerHeight * 0.4};
+
+function updatePointerGlow() {
+  pointerFrame = null;
+  document.body.style.setProperty('--glow-x', `${nextPointer.x}px`);
+  document.body.style.setProperty('--glow-y', `${nextPointer.y}px`);
+}
+
+window.addEventListener('pointermove', (event) => {
+  nextPointer = {x: event.clientX, y: event.clientY};
+  document.body.classList.add('has-pointer-glow');
+  if (!pointerFrame) {
+    pointerFrame = window.requestAnimationFrame(updatePointerGlow);
+  }
+});
+
+window.addEventListener('pointerleave', () => {
+  document.body.classList.remove('has-pointer-glow');
+});
