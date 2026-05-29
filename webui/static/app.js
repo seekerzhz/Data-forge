@@ -99,3 +99,25 @@ function poll(card, taskId) {
 
 addButton.addEventListener('click', addItem);
 addItem();
+
+
+let pointerFrame = null;
+let nextPointer = {x: window.innerWidth / 2, y: window.innerHeight * 0.4};
+
+function updatePointerGlow() {
+  pointerFrame = null;
+  document.body.style.setProperty('--glow-x', `${nextPointer.x}px`);
+  document.body.style.setProperty('--glow-y', `${nextPointer.y}px`);
+}
+
+window.addEventListener('pointermove', (event) => {
+  nextPointer = {x: event.clientX, y: event.clientY};
+  document.body.classList.add('has-pointer-glow');
+  if (!pointerFrame) {
+    pointerFrame = window.requestAnimationFrame(updatePointerGlow);
+  }
+});
+
+window.addEventListener('pointerleave', () => {
+  document.body.classList.remove('has-pointer-glow');
+});
