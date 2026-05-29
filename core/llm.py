@@ -17,6 +17,8 @@ class LLMConfig:
 
 
 class LLMClient:
+    """Small adapter around OpenAI-compatible chat-completion providers."""
+
     def __init__(self, config: LLMConfig):
         self.config = config
         self.client = self._build_client(config.provider)
@@ -56,6 +58,15 @@ class LLMClient:
         return OpenAI(api_key=api_key)
 
     def chat(self, system_prompt: str, user_prompt: str) -> str:
+        """Send one chat-completion request and return text content.
+
+        Args:
+            system_prompt: Instruction message for the model.
+            user_prompt: User message payload.
+
+        Returns:
+            Model text response, or an empty string when the provider returns no content.
+        """
         response = self.client.chat.completions.create(
             model=self.model,
             temperature=self.config.temperature,

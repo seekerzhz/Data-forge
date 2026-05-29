@@ -29,16 +29,16 @@
       </div>
       <div class="card-body">
         <div class="field-row">
-          <div class="field">
+          <div class="field" data-field="pid">
             <label>题号</label>
             <input class="pid" placeholder="可空">
           </div>
-          <div class="field">
+          <div class="field" data-field="cases">
             <label>数据组数</label>
-            <input class="num_cases" type="number" min="1" value="20" title="数据组数">
+            <input class="num_cases" type="number" min="1" max="100" value="20" title="数据组数">
           </div>
         </div>
-        <div class="field">
+        <div class="field" data-field="markdown">
           <label>题面 Markdown</label>
           <textarea class="md" rows="10" placeholder="粘贴题面"></textarea>
         </div>
@@ -50,6 +50,6 @@
     </article>
   </template>
 
-  <script src="/static/app.js?v=20260529-no-pointer-effects" defer></script>
+  <script type="module" src="/static/js/app.js?v=20260529-modular" defer></script>
 </body>
 </html>

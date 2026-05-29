@@ -7,6 +7,8 @@ from core.utils import extract_code_block, read_text
 
 
 class GeneratorBuilder:
+    """Build Python data generators from problem statements through the LLM."""
+
     def __init__(self, llm: LLMClient, prompt_path: Path):
         self.llm = llm
         self.template = read_text(prompt_path)
@@ -20,6 +22,19 @@ class GeneratorBuilder:
         random_cases: int,
         max_cases: int,
     ) -> str:
+        """Generate Python source code for a test-data generator.
+
+        Args:
+            problem_statement: Polished Markdown problem statement.
+            total_cases: Requested total case count.
+            small_cases: Target number of small/easy cases.
+            special_cases: Target number of edge cases.
+            random_cases: Target number of random cases.
+            max_cases: Target number of maximum-stress cases.
+
+        Returns:
+            Extracted Python code from the LLM response.
+        """
         user_prompt = (
             self.template.replace("{{problem}}", problem_statement)
             .replace("{{total_cases}}", str(total_cases))
