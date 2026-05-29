@@ -46,8 +46,12 @@ def create_app(task_queue: TaskQueue | None = None) -> FastAPI:
     @app.get("/download/{task_id}")
     def download(task_id: str) -> FileResponse:
         task = queue.get(task_id)
-        if not task or task.get("zip_path") is None:
+        zip_path_value = task.get("zip_path") if task else None
+        if not zip_path_value:
             raise HTTPException(404, "not ready")
-        return FileResponse(task["zip_path"], filename=Path(task["zip_path"]).name, media_type="application/zip")
+        zip_path = Path(zip_path_value).resolve()
+        if not zip_path.is_file():
+            raise HTTPException(404, "file not found")
+        return FileResponse(zip_path, filename=zip_path.name, media_type="application/zip")
 
     return app

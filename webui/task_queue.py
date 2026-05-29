@@ -31,6 +31,8 @@ class TaskRecord:
 
 
 class TaskQueue:
+    """Threaded background queue that tracks generation task state."""
+
     def __init__(
         self,
         workspace_root: Path = Path("workspace/tasks"),
@@ -46,17 +48,20 @@ class TaskQueue:
             threading.Thread(target=self._worker, daemon=True).start()
 
     def submit(self, pid: str, statement: str, num_cases: int) -> str:
+        """Enqueue a new generation task and return its public task id."""
         task_id = str(uuid.uuid4())
         self._set(task_id, status="waiting", progress="等待处理", percent=4)
         self.jobs.put(TaskJob(task_id=task_id, pid=pid, statement=statement, num_cases=num_cases))
         return task_id
 
     def get(self, task_id: str) -> dict[str, Any] | None:
+        """Return a snapshot of one task state, or None when absent."""
         with self.lock:
             record = self.tasks.get(task_id)
             return record.as_dict() if record else None
 
     def finish(self, task_id: str) -> bool:
+        """Mark a completed task as downloaded/finished."""
         with self.lock:
             record = self.tasks.get(task_id)
             if not record:
@@ -83,6 +88,7 @@ class TaskQueue:
             record.details.update(details)
 
     def _worker(self) -> None:
+        """Continuously process queued jobs with one lazily-created ForgeService."""
         service: ForgeService | None = None
         while True:
             job = self.jobs.get()
