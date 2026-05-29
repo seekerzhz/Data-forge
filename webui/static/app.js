@@ -15,7 +15,6 @@ function setStatus(card, text, state = 'idle', percent = 0) {
   }
   const safePercent = Math.max(0, Math.min(100, Number(percent) || 0));
   progressBar.style.width = `${safePercent}%`;
-  card.style.setProperty('--progress-position', `${safePercent}%`);
   if (safePercent >= 86 && ['waiting', 'processing', 'done', 'finished'].includes(state)) {
     card.classList.add('is-near-complete');
   }
