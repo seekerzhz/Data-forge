@@ -61,6 +61,8 @@ def index() -> str:
       --blue: #007AFF;
       --blue-hover: #006FE6;
       --danger: #FF3B30;
+      --font-display: "HYWenHei 85W", "Hanyi WenHei 85W", "汉仪文黑-85W", "HYWenHei-85W", "PingFang SC", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", Roboto, sans-serif;
+      --font-text: "HYWenHei 85W", "Hanyi WenHei 85W", "汉仪文黑-85W", "HYWenHei-85W", "PingFang SC", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", Roboto, sans-serif;
     }
 
     * {
@@ -78,7 +80,7 @@ def index() -> str:
       min-height: 100vh;
       background: var(--background);
       color: var(--text);
-      font-family: "SF Pro Text", -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", Roboto, sans-serif;
+      font-family: var(--font-text);
       font-size: 16px;
       font-weight: 400;
       letter-spacing: -0.01em;
@@ -106,7 +108,7 @@ def index() -> str:
 
     h1 {
       margin: 0;
-      font-family: "SF Pro Display", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", Roboto, sans-serif;
+      font-family: var(--font-display);
       font-size: 30px;
       font-weight: 620;
       letter-spacing: -0.02em;
@@ -151,7 +153,7 @@ def index() -> str:
 
     .card-title {
       margin: 0;
-      font-family: "SF Pro Display", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", Roboto, sans-serif;
+      font-family: var(--font-display);
       font-size: 17px;
       font-weight: 600;
       letter-spacing: -0.02em;
