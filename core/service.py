@@ -3,11 +3,13 @@ from __future__ import annotations
 import hashlib
 import re
 import shutil
+import zipfile
+from collections.abc import Callable
 from pathlib import Path
 
-from core.generator import GeneratorBuilder
-import zipfile
 import yaml
+
+from core.generator import GeneratorBuilder
 from core.llm import LLMClient, LLMConfig
 from core.models import ProblemMeta, SampleCase
 from core.runner import PipelineRunner
@@ -95,8 +97,21 @@ class ForgeService:
                 shutil.copyfile(src, dst)
         return len(set(input_files))
 
-    def run_with_statement(self, pid: str, raw_statement: str, workspace: Path, num_cases: int = 15) -> dict:
+    def run_with_statement(
+        self,
+        pid: str,
+        raw_statement: str,
+        workspace: Path,
+        num_cases: int = 15,
+        progress: Callable[[str, int], None] | None = None,
+    ) -> dict:
+        def report(message: str, percent: int) -> None:
+            if progress:
+                progress(message, percent)
+
+        report("润色题面", 12)
         polished = self.polish_statement(raw_statement)
+        report("解析题面", 22)
         meta = self.parse_statement(pid, polished)
         folder = meta.pid if meta.pid else "no_pid"
         problem_dir = workspace / folder
@@ -105,23 +120,39 @@ class ForgeService:
             d.mkdir(parents=True, exist_ok=True)
 
         write_text(problem_dir / "problem_zh.md", meta.statement_markdown + "\n")
-        write_text(source_dir / "generator.py", self.generator_builder.build(meta.statement_markdown, num_cases, 2, 2, max(1, num_cases // 2), max(1, num_cases // 3)))
+        report("生成数据生成器", 34)
+        generator_code = self.generator_builder.build(
+            meta.statement_markdown,
+            num_cases,
+            2,
+            2,
+            max(1, num_cases // 2),
+            max(1, num_cases // 3),
+        )
+        write_text(source_dir / "generator.py", generator_code)
+        report("生成标准解", 46)
         write_text(source_dir / "solution.cpp", self.solution_builder.build(meta.statement_markdown))
 
         for i in range(1, num_cases + 1):
             run_generator_in_sandbox(problem_dir, "source/generator.py", i)
+            report(f"生成测试数据 {i}/{num_cases}", 46 + int(32 * i / max(1, num_cases)))
 
+        report("整理输入文件", 80)
         in_count = self._collect_and_flatten_inputs(problem_dir, data_dir)
         if in_count == 0:
             raise RuntimeError("未找到任何 .in 文件")
 
         runner = PipelineRunner(data_dir)
+        report("编译标准解", 84)
         runner.compile_solution(str((source_dir / "solution.cpp").resolve()), "solution")
+        report("生成输出文件", 88)
         outputs, skipped = runner.produce_outputs("./solution")
 
+        report("打包 ZIP", 96)
         safe_title = re.sub(r"[^\w\-\u4e00-\u9fff]+", "-", meta.title).strip("-")[:50]
         key = hashlib.md5(f"{meta.title}-{num_cases}".encode()).hexdigest()[:8]
         prefix = f"{meta.pid}-" if meta.pid else ""
         zip_path = build_dir / f"{prefix}{safe_title}-{key}.zip"
         _package(meta, data_dir, zip_path, source_dir / "solution.cpp")
+        report("完成", 100)
         return {"zip_path": str(zip_path), "status": "success", "inputs": in_count, "outputs": len(outputs), "skipped": len(skipped)}
