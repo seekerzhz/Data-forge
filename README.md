@@ -146,21 +146,3 @@ uvicorn webapp:app --host 0.0.0.0 --port 8000 --reload
 ### `POST /tasks/{task_id}/finish`
 
 下载触发后将任务标记为 `finished`。
-
-## 安全与边界处理
-
-- 前后端均限制 `num_cases <= 100`，避免单次请求过度消耗资源。
-- 用户输入的 `pid` 和题目标题在用于 workspace 目录名、ZIP 名称前会经过 `core.naming` 净化；文件名优先使用题目名称，仅在需要时加题号前缀，不再追加哈希。
-- 每个任务结束后会删除对应的 `workspace/tasks/<task_id>/` 运行目录；成功任务的 ZIP 会临时移动到 `workspace/downloads/<task_id>/`，下载响应结束后自动清理。
-- 生成器在 `core.sandbox` 中运行，限制 CPU、内存和输出文件大小。
-- 前端不使用 `innerHTML` 渲染用户输入，状态文本通过 `textContent` 更新。
-- 页面已删除鼠标移动光点和水波纹跟随效果，仅保留任务进度条动效。
-
-## 字体说明
-
-如需内置“汉仪文黑-85W / HYWenHei”风格字体，请将已授权字体文件放入：
-
-- `webui/static/fonts/HYWenHei-85W.woff2`（推荐）
-- `webui/static/fonts/HYWenHei-85W.ttf`
-
-仓库不直接包含商业字体二进制文件；未放置字体时浏览器会回退到系统中文字体。
