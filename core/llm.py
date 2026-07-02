@@ -18,23 +18,33 @@ class LLMConfig:
     max_tokens: int | None = None
 
 
+DEEPSEEK_REASONING_ALIAS = "deepseek-reasoning"
+DEEPSEEK_DEFAULT_REASONING_MODEL = "deepseek-v4-pro"
+
+
 class LLMClient:
     """Small adapter around OpenAI-compatible chat-completion providers."""
 
     def __init__(self, config: LLMConfig):
         self.config = config
+        self.provider = config.provider
         self.client = self._build_client(config.provider)
-        self.model = config.model or self._default_model(config.provider)
+        self.model = self._normalize_model(config.model or self._default_model(config.provider))
 
     @staticmethod
     def _default_model(provider: str) -> str:
         if provider == "deepseek":
-            return os.getenv("DEEPSEEK_MODEL", "deepseek-reasoning")
+            return os.getenv("DEEPSEEK_MODEL", DEEPSEEK_DEFAULT_REASONING_MODEL)
         if provider == "ark":
             return os.getenv("ARK_MODEL", "doubao-seed-1-6-250615")
         if provider == "openai_compatible":
             return os.getenv("OPENAI_COMPAT_MODEL", "deepseek-chat")
         return os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+
+    def _normalize_model(self, model: str) -> str:
+        if self.provider == "deepseek" and model == DEEPSEEK_REASONING_ALIAS:
+            return DEEPSEEK_DEFAULT_REASONING_MODEL
+        return model
 
     @staticmethod
     def _build_client(provider: str) -> OpenAI:
@@ -83,7 +93,7 @@ class LLMClient:
             Model text response, or an empty string when the provider returns no content.
         """
         request: dict[str, Any] = {
-            "model": model or self.model,
+            "model": self._normalize_model(model or self.model),
             "temperature": self.config.temperature,
             "messages": [
                 {"role": "system", "content": system_prompt},
