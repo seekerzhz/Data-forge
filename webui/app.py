@@ -28,7 +28,7 @@ def create_app(task_queue: TaskQueue | None = None) -> FastAPI:
 
     @app.post("/tasks")
     def create_task(req: TaskReq) -> dict[str, str]:
-        task_id = queue.submit(req.pid, req.statement_markdown, req.num_cases)
+        task_id = queue.submit(req.pid, req.statement_markdown, req.num_cases, req.custom_solution)
         return {"task_id": task_id}
 
     @app.get("/tasks/{task_id}")
