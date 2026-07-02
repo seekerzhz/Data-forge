@@ -18,6 +18,7 @@ class TaskJob:
     pid: str
     statement: str
     num_cases: int
+    custom_solution: str | None = None
 
 
 @dataclass
@@ -50,11 +51,19 @@ class TaskQueue:
         for _ in range(workers):
             threading.Thread(target=self._worker, daemon=True).start()
 
-    def submit(self, pid: str, statement: str, num_cases: int) -> str:
+    def submit(self, pid: str, statement: str, num_cases: int, custom_solution: str | None = None) -> str:
         """Enqueue a new generation task and return its public task id."""
         task_id = str(uuid.uuid4())
         self._set(task_id, status="waiting", progress="等待处理", percent=4)
-        self.jobs.put(TaskJob(task_id=task_id, pid=pid, statement=statement, num_cases=num_cases))
+        self.jobs.put(
+            TaskJob(
+                task_id=task_id,
+                pid=pid,
+                statement=statement,
+                num_cases=num_cases,
+                custom_solution=custom_solution,
+            )
+        )
         return task_id
 
     def get(self, task_id: str) -> dict[str, Any] | None:
@@ -142,6 +151,7 @@ class TaskQueue:
                     self._task_workspace(job.task_id),
                     job.num_cases,
                     progress=report,
+                    custom_solution=job.custom_solution,
                 )
                 result.pop("status", None)
                 result["zip_path"] = self._stage_zip_for_download(job.task_id, result["zip_path"])

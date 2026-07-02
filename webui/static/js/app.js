@@ -22,6 +22,13 @@ function addItem() {
   bindLabel(card, 'pid', `${id}-pid`);
   bindLabel(card, 'cases', `${id}-cases`);
   bindLabel(card, 'markdown', `${id}-md`);
+  bindLabel(card, 'custom-solution', `${id}-custom-solution`);
+  const customToggle = /** @type {HTMLInputElement} */ (requireElement(card, '.custom-solution-toggle'));
+  const customPanel = requireElement(card, '.custom-solution-panel');
+  customToggle.id = `${id}-custom-solution-toggle`;
+  customToggle.addEventListener('change', () => {
+    customPanel.hidden = !customToggle.checked;
+  });
   requireElement(card, '.submit').addEventListener('click', () => submitOne(card));
   requireElement(card, '.clear').addEventListener('click', () => {
     clearPollTimer(card.id);

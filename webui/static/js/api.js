@@ -27,14 +27,14 @@ export async function requestJson(url, options = {}) {
 
 /**
  * 创建后端生成任务。
- * @param {{pid: string, statementMarkdown: string, numCases: number}} task - 表单任务数据。
+ * @param {{pid: string, statementMarkdown: string, numCases: number, customSolution?: string}} task - 表单任务数据。
  * @returns {Promise<{task_id: string}>} 后端任务标识。
  */
-export function createTask({pid, statementMarkdown, numCases}) {
+export function createTask({pid, statementMarkdown, numCases, customSolution}) {
   return requestJson('/tasks', {
     method: 'POST',
     headers: JSON_HEADERS,
-    body: JSON.stringify({pid, statement_markdown: statementMarkdown, num_cases: numCases}),
+    body: JSON.stringify({pid, statement_markdown: statementMarkdown, num_cases: numCases, custom_solution: customSolution || null}),
   });
 }
 

@@ -7,3 +7,4 @@ class TaskReq(BaseModel):
     pid: str = ""
     statement_markdown: str = Field(min_length=1)
     num_cases: int = Field(default=20, ge=1, le=100)
+    custom_solution: str | None = None
