@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from core.llm import LLMClient
@@ -30,5 +31,7 @@ class SolutionBuilder:
                 "Add brief Chinese comments for key logic only. Output C++ code only."
             ),
             user_prompt=user_prompt,
+            model=os.getenv("DEEPSEEK_REASONING_MODEL", "deepseek-v4-pro"),
+            max_tokens=int(os.getenv("DEEPSEEK_REASONING_MAX_TOKENS", "8192")),
         )
         return extract_code_block(answer, language="cpp")

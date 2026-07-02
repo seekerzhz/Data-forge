@@ -45,7 +45,7 @@ DataForge 是一个轻量 Web 工具，用于把竞赛题面 Markdown 转换为�
 - Python 3.10+
 - Linux / macOS（沙箱使用 Unix `resource` 限制）
 - `g++`（用于编译 C++17 标准解）
-- 可用的 Ark、OpenAI 或 OpenAI-Compatible API Key
+- 可用的 DeepSeek、Ark、OpenAI 或 OpenAI-Compatible API Key
 
 安装依赖：
 
@@ -66,13 +66,21 @@ pip install -r requirements.txt
 在项目根目录创建 `.env`：
 
 ```env
-# Provider: ark / openai / openai_compatible
-LLM_PROVIDER=ark
+# Provider: deepseek / ark / openai / openai_compatible
+LLM_PROVIDER=deepseek
+
+# DeepSeek (default)
+DEEPSEEK_API_KEY=your-deepseek-key
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+# 当前接入方支持的 DeepSeek 模型名；如果 API 报只支持 deepseek-v4-pro / deepseek-v4-flash，请使用 deepseek-v4-pro。
+DEEPSEEK_MODEL=deepseek-v4-pro
+DEEPSEEK_REASONING_MODEL=deepseek-v4-pro
+DEEPSEEK_REASONING_MAX_TOKENS=8192
 
 # Ark
-ARK_API_KEY=your-ark-key
-ARK_MODEL=doubao-seed-1-6-250615
-ARK_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
+# ARK_API_KEY=your-ark-key
+# ARK_MODEL=doubao-seed-1-6-250615
+# ARK_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
 
 # OpenAI
 # OPENAI_API_KEY=your-openai-key
@@ -123,7 +131,8 @@ uvicorn webapp:app --host 0.0.0.0 --port 8000 --reload
 {
   "pid": "P1001",
   "statement_markdown": "# P1001 A+B Problem\n\n## 题目描述\n...",
-  "num_cases": 20
+  "num_cases": 20,
+  "custom_solution": "#include <bits/stdc++.h>\nusing namespace std;\nint main(){return 0;}"
 }
 ```
 

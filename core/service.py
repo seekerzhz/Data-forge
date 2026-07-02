@@ -71,7 +71,10 @@ class ForgeService:
 
     def __init__(self, provider: str | None = None, model: str | None = None, temperature: float = 0.1):
         selected_provider = provider or LLMConfig().provider
-        self.llm = LLMClient(LLMConfig(provider=selected_provider, model=model, temperature=temperature))
+        max_tokens = 8192 if selected_provider == "deepseek" else None
+        self.llm = LLMClient(
+            LLMConfig(provider=selected_provider, model=model, temperature=temperature, max_tokens=max_tokens)
+        )
         self.generator_builder = GeneratorBuilder(self.llm, Path("prompts/generator.txt"))
         self.solution_builder = SolutionBuilder(self.llm, Path("prompts/solution.txt"))
         self.statement_system_prompt = read_text(Path("prompts/statement_polish.txt"))
@@ -167,6 +170,7 @@ class ForgeService:
         workspace: Path,
         num_cases: int = 15,
         progress: Callable[[str, int], None] | None = None,
+        custom_solution: str | None = None,
     ) -> dict:
         """Run the full generation pipeline for one submitted problem statement.
 
@@ -176,6 +180,8 @@ class ForgeService:
             workspace: Isolated task workspace.
             num_cases: Number of generator invocations/test inputs to produce.
             progress: Optional callback receiving stage text and percentage.
+            custom_solution: Optional user-provided C++ standard solution. When present,
+                it replaces the LLM-generated solution for all later stages.
 
         Returns:
             A dictionary containing the ZIP path and generation statistics.
@@ -205,8 +211,12 @@ class ForgeService:
             max(1, num_cases // 3),
         )
         write_text(source_dir / "generator.py", generator_code)
-        report("生成标准解", 46)
-        write_text(source_dir / "solution.cpp", self.solution_builder.build(meta.statement_markdown))
+        if custom_solution and custom_solution.strip():
+            report("使用自定义标准解", 46)
+            write_text(source_dir / "solution.cpp", custom_solution.strip() + "\n")
+        else:
+            report("生成标准解", 46)
+            write_text(source_dir / "solution.cpp", self.solution_builder.build(meta.statement_markdown))
 
         for i in range(1, num_cases + 1):
             run_generator_in_sandbox(problem_dir, "source/generator.py", i)

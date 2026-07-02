@@ -17,8 +17,9 @@
   --blue-hover: #006FE6;
   --green: #34C759;
   --danger: #FF3B30;
-  --font-title: "Songti SC", "STSong", "Noto Serif CJK SC", "Source Han Serif SC", SimSun, "Times New Roman", serif;
-  --font-text: "DataForge HYWenHei", "HYWenHei 85W", "Hanyi WenHei 85W", "汉仪文黑-85W", "HYWenHei-85W", "PingFang SC", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", Roboto, sans-serif;
+  --font-title: Inter, -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", "Segoe UI", sans-serif;
+  --font-text: Inter, -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", "Segoe UI", Roboto, sans-serif;
+  --font-code: "JetBrains Mono", "Fira Code", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
 }
 
 * {
@@ -303,6 +304,44 @@ textarea {
   resize: vertical;
   padding: 11px 12px;
   line-height: 1.4;
+}
+
+.statement-input {
+  font-family: var(--font-text);
+}
+
+.code-input,
+code,
+pre {
+  font-family: var(--font-code);
+}
+
+.code-input {
+  font-size: 14px;
+  line-height: 1.55;
+  tab-size: 2;
+}
+
+.manual-solution {
+  display: grid;
+  gap: 10px;
+}
+
+.toggle-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.toggle-line input {
+  width: 16px;
+  height: 16px;
+}
+
+.custom-solution-panel[hidden] {
+  display: none;
 }
 
 input::placeholder,

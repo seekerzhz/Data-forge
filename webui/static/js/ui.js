@@ -63,12 +63,14 @@ export function bindLabel(card, fieldName, id) {
 /**
  * 从卡片读取并校验用户输入。
  * @param {HTMLElement} card - 任务卡片。
- * @returns {{pid: string, statementMarkdown: string, numCases: number}} 表单数据。
+ * @returns {{pid: string, statementMarkdown: string, numCases: number, customSolution: string}} 表单数据。
  */
 export function readTaskForm(card) {
   const pid = /** @type {HTMLInputElement} */ (requireElement(card, '.pid')).value.trim();
   const numCases = Number(/** @type {HTMLInputElement} */ (requireElement(card, '.num_cases')).value || 20);
   const statementMarkdown = /** @type {HTMLTextAreaElement} */ (requireElement(card, '.md')).value;
+  const useCustomSolution = /** @type {HTMLInputElement} */ (requireElement(card, '.custom-solution-toggle')).checked;
+  const customSolution = /** @type {HTMLTextAreaElement} */ (requireElement(card, '.custom-solution')).value;
 
   if (!statementMarkdown.trim()) {
     throw new Error('题面不能为空');
@@ -77,7 +79,11 @@ export function readTaskForm(card) {
     throw new Error('数据组数必须是 1 到 100 之间的整数');
   }
 
-  return {pid, statementMarkdown, numCases};
+  if (useCustomSolution && !customSolution.trim()) {
+    throw new Error('启用自定义 Solution 后，标准代码不能为空');
+  }
+
+  return {pid, statementMarkdown, numCases, customSolution: useCustomSolution ? customSolution : ''};
 }
 
 /**
@@ -89,6 +95,9 @@ export function clearForm(card) {
   /** @type {HTMLInputElement} */ (requireElement(card, '.pid')).value = '';
   /** @type {HTMLInputElement} */ (requireElement(card, '.num_cases')).value = '20';
   /** @type {HTMLTextAreaElement} */ (requireElement(card, '.md')).value = '';
+  /** @type {HTMLInputElement} */ (requireElement(card, '.custom-solution-toggle')).checked = false;
+  /** @type {HTMLTextAreaElement} */ (requireElement(card, '.custom-solution')).value = '';
+  requireElement(card, '.custom-solution-panel').hidden = true;
   setStatus(card, 'waiting-edit', 'idle', 0);
 }
 
