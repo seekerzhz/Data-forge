@@ -78,9 +78,14 @@ export function readTaskForm(card) {
   if (!Number.isInteger(numCases) || numCases < 1 || numCases > 100) {
     throw new Error('数据组数必须是 1 到 100 之间的整数');
   }
-
+  if (statementMarkdown.length > 100000) {
+    throw new Error('题面过长（最多 100000 字符）');
+  }
   if (useCustomSolution && !customSolution.trim()) {
     throw new Error('启用自定义 Solution 后，标准代码不能为空');
+  }
+  if (useCustomSolution && customSolution.length > 200000) {
+    throw new Error('自定义 Solution 过长（最多 200000 字符）');
   }
 
   return {pid, statementMarkdown, numCases, customSolution: useCustomSolution ? customSolution : ''};

@@ -89,8 +89,21 @@ h1 {
 
 .toolbar {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
+  align-items: center;
   margin-top: 20px;
+}
+
+.token-field {
+  font-size: 0.875rem;
+  opacity: 0.85;
+}
+
+.api-token {
+  min-width: 16rem;
+  max-width: 24rem;
+  flex: 1 1 12rem;
 }
 
 .list {

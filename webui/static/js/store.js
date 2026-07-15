@@ -1,12 +1,11 @@
-// 状态管理模块：维护前端卡片序号和轮询定时器。
+// 状态管理模块：维护前端卡片序号和 AbortController。
 const state = {
   nextIndex: 0,
-  timers: new Map(),
+  controllers: new Map(),
 };
 
 /**
- * 生成单调递增的前端卡片序号。
- * @returns {number} 新卡片序号。
+ * @returns {number}
  */
 export function nextCardIndex() {
   state.nextIndex += 1;
@@ -14,25 +13,34 @@ export function nextCardIndex() {
 }
 
 /**
- * 保存任务轮询定时器，重复保存前会清理旧定时器。
- * @param {string} cardId - 卡片 DOM id。
- * @param {number} timerId - setInterval 返回值。
- * @returns {void}
+ * @param {string} cardId
+ * @returns {AbortSignal}
  */
-export function setPollTimer(cardId, timerId) {
-  clearPollTimer(cardId);
-  state.timers.set(cardId, timerId);
+export function beginWatch(cardId) {
+  stopWatch(cardId);
+  const controller = new AbortController();
+  state.controllers.set(cardId, controller);
+  return controller.signal;
 }
 
 /**
- * 清理指定卡片的轮询定时器。
- * @param {string} cardId - 卡片 DOM id。
+ * @param {string} cardId
  * @returns {void}
  */
-export function clearPollTimer(cardId) {
-  const timerId = state.timers.get(cardId);
-  if (timerId) {
-    window.clearInterval(timerId);
-    state.timers.delete(cardId);
+export function stopWatch(cardId) {
+  const controller = state.controllers.get(cardId);
+  if (controller) {
+    controller.abort();
+    state.controllers.delete(cardId);
   }
+}
+
+/** @deprecated 兼容旧命名 */
+export function clearPollTimer(cardId) {
+  stopWatch(cardId);
+}
+
+/** @deprecated 兼容旧命名 */
+export function setPollTimer() {
+  // no-op: 已改用 AbortController
 }

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import os
+import random
+import time
 from dataclasses import dataclass, field
 from typing import Any
 
 from dotenv import load_dotenv
-from openai import OpenAI
+from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI, RateLimitError
 
 load_dotenv()
 
@@ -30,6 +32,8 @@ class LLMClient:
         self.provider = config.provider
         self.client = self._build_client(config.provider)
         self.model = self._normalize_model(config.model or self._default_model(config.provider))
+        self.max_retries = max(1, int(os.getenv("LLM_MAX_RETRIES", "3")))
+        self.retry_base_s = float(os.getenv("LLM_RETRY_BASE_SECONDS", "1.0"))
 
     @staticmethod
     def _default_model(provider: str) -> str:
@@ -83,14 +87,7 @@ class LLMClient:
     def chat(self, system_prompt: str, user_prompt: str, model: str | None = None, max_tokens: int | None = None) -> str:
         """Send one chat-completion request and return text content.
 
-        Args:
-            system_prompt: Instruction message for the model.
-            user_prompt: User message payload.
-            model: Optional per-request model override.
-            max_tokens: Optional per-request output budget override.
-
-        Returns:
-            Model text response, or an empty string when the provider returns no content.
+        Retries transient provider errors with exponential backoff.
         """
         request: dict[str, Any] = {
             "model": self._normalize_model(model or self.model),
@@ -104,5 +101,21 @@ class LLMClient:
         if token_budget is not None:
             request["max_tokens"] = token_budget
 
-        response = self.client.chat.completions.create(**request)
-        return response.choices[0].message.content or ""
+        last_error: Exception | None = None
+        for attempt in range(self.max_retries):
+            try:
+                response = self.client.chat.completions.create(**request)
+                return response.choices[0].message.content or ""
+            except (APIConnectionError, APITimeoutError, RateLimitError) as exc:
+                last_error = exc
+            except APIStatusError as exc:
+                last_error = exc
+                if exc.status_code is None or exc.status_code < 500:
+                    raise
+            if attempt + 1 >= self.max_retries:
+                break
+            delay = self.retry_base_s * (2**attempt) + random.uniform(0, 0.25)
+            time.sleep(delay)
+
+        assert last_error is not None
+        raise last_error

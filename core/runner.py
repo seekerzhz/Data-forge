@@ -3,6 +3,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+from core.sandbox import run_sandboxed
 from core.utils import sort_input_files
 
 
@@ -11,7 +12,7 @@ class PipelineRunner:
         self.workspace = workspace
 
     def _run(self, cmd: list[str]) -> None:
-        """Run a subprocess in the runner workspace and fail on non-zero exit."""
+        """Run a host-side build command in the runner workspace."""
         subprocess.run(cmd, cwd=self.workspace, check=True)
 
     def compile_solution(self, source: str = "solution.cpp", output: str = "solution") -> None:
@@ -36,22 +37,24 @@ class PipelineRunner:
         input_files = sort_input_files(list(self.workspace.glob("*.in")))
         outputs: list[Path] = []
         skipped: list[Path] = []
+        exe_name = Path(exe).name
         for input_file in input_files:
             output_file = input_file.with_suffix(".out")
             try:
                 with input_file.open("rb") as fin, output_file.open("wb") as fout:
-                    subprocess.run(
-                        [exe],
-                        cwd=self.workspace,
+                    run_sandboxed(
+                        self.workspace,
+                        [f"./{exe_name}"],
+                        timeout_s=per_case_timeout_s,
+                        memory_mb=512,
                         stdin=fin,
                         stdout=fout,
-                        check=True,
-                        timeout=per_case_timeout_s,
+                        stderr=subprocess.DEVNULL,
                     )
                 outputs.append(output_file)
-            except subprocess.TimeoutExpired:
+            except (subprocess.TimeoutExpired, subprocess.CalledProcessError):
                 skipped.append(input_file)
                 if output_file.exists():
                     output_file.unlink()
-                print(f"[DataForge][WARN] {input_file.name} 运行超过 {per_case_timeout_s:.1f}s，已跳过")
+                print(f"[DataForge][WARN] {input_file.name} 运行失败或超时，已跳过")
         return outputs, skipped

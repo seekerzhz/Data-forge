@@ -12,8 +12,11 @@
       <h1>粘贴题面，一键生成数据包</h1>
       <p class="subtitle">填写题面 Markdown 和数据组数后提交；默认由 DeepSeek 生成标准解，也可手动粘贴 Solution 覆盖。</p>
       <div class="toolbar">
+        <label class="token-field" for="api-token">API Token</label>
+        <input id="api-token" class="api-token" type="password" autocomplete="off" placeholder="可选；服务端启用鉴权时必填">
         <button class="button" type="button" data-action="add-item">新的题面</button>
       </div>
+      <p id="auth-hint" class="subtitle" hidden></p>
     </header>
     <section id="list" class="list" aria-label="题面提交列表"></section>
   </main>
@@ -60,6 +63,6 @@
     </article>
   </template>
 
-  <script type="module" src="/static/js/app.js?v=20260702-custom-solution" defer></script>
+  <script type="module" src="/static/js/app.js?v=20260715-hardening" defer></script>
 </body>
 </html>

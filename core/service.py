@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import os
 import re
 import shutil
 import zipfile
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import yaml
@@ -19,17 +21,7 @@ from core.utils import read_text, write_text
 
 
 def _package(meta: ProblemMeta, data_dir: Path, zip_path: Path, solution_path: Path) -> None:
-    """Build a Hydro-compatible ZIP package from generated test data.
-
-    Args:
-        meta: Parsed and sanitized problem metadata.
-        data_dir: Directory containing flattened `.in` and `.out` files.
-        zip_path: Destination ZIP path.
-        solution_path: Optional standard solution copied into the package.
-
-    Returns:
-        None. The ZIP archive is written to `zip_path`.
-    """
+    """Build a Hydro-compatible ZIP package from generated test data."""
     root_name = build_problem_artifact_name(meta.pid, meta.title)
     root = data_dir / root_name
     testdata_dir = root / "testdata"
@@ -66,6 +58,7 @@ def _package(meta: ProblemMeta, data_dir: Path, zip_path: Path, solution_path: P
             if path.is_file():
                 zf.write(path, path.relative_to(data_dir))
 
+
 class ForgeService:
     """Orchestrates statement polishing, data generation, judging, and packaging."""
 
@@ -78,6 +71,7 @@ class ForgeService:
         self.generator_builder = GeneratorBuilder(self.llm, Path("prompts/generator.txt"))
         self.solution_builder = SolutionBuilder(self.llm, Path("prompts/solution.txt"))
         self.statement_system_prompt = read_text(Path("prompts/statement_polish.txt"))
+        self.case_workers = max(1, int(os.getenv("DATAFORGE_CASE_WORKERS", "4")))
 
     def polish_statement(self, raw_markdown: str) -> str:
         """Polish raw Markdown while preserving the original content as fallback."""
@@ -86,15 +80,7 @@ class ForgeService:
 
     @staticmethod
     def parse_statement(problem_id: str, statement_markdown: str) -> ProblemMeta:
-        """Parse Markdown into sanitized metadata used by later pipeline stages.
-
-        Args:
-            problem_id: Optional user-provided problem id.
-            statement_markdown: Polished problem statement.
-
-        Returns:
-            Problem metadata with safe pid and extracted statement sections.
-        """
+        """Parse Markdown into sanitized metadata used by later pipeline stages."""
         title_match = re.search(r"^#\s*(.+)$", statement_markdown, flags=re.MULTILINE)
         title = title_match.group(1).strip() if title_match else (problem_id or "Untitled Problem")
         generic_titles = {"题目描述", "未命名", "untitled problem", "title", "problem"}
@@ -138,15 +124,7 @@ class ForgeService:
 
     @staticmethod
     def _collect_and_flatten_inputs(problem_dir: Path, data_dir: Path) -> int:
-        """Collect generated `.in` files into a flat Hydro testdata directory.
-
-        Args:
-            problem_dir: Root directory for one generated problem.
-            data_dir: Destination directory for flattened input files.
-
-        Returns:
-            Number of input files copied or already present.
-        """
+        """Collect generated `.in` files into a flat Hydro testdata directory."""
         input_files = [
             path
             for path in problem_dir.rglob("*.in")
@@ -163,6 +141,30 @@ class ForgeService:
                 shutil.copyfile(src, dst)
         return len(set(input_files))
 
+    def _generate_cases_parallel(
+        self,
+        problem_dir: Path,
+        num_cases: int,
+        progress: Callable[[str, int], None] | None,
+    ) -> None:
+        """Generate test inputs concurrently within a bounded worker pool."""
+        completed = 0
+
+        def one(case_id: int) -> int:
+            run_generator_in_sandbox(problem_dir, "source/generator.py", case_id)
+            return case_id
+
+        with ThreadPoolExecutor(max_workers=min(self.case_workers, num_cases)) as pool:
+            futures = [pool.submit(one, i) for i in range(1, num_cases + 1)]
+            for future in as_completed(futures):
+                future.result()
+                completed += 1
+                if progress:
+                    progress(
+                        f"生成测试数据 {completed}/{num_cases}",
+                        46 + int(32 * completed / max(1, num_cases)),
+                    )
+
     def run_with_statement(
         self,
         pid: str,
@@ -172,20 +174,8 @@ class ForgeService:
         progress: Callable[[str, int], None] | None = None,
         custom_solution: str | None = None,
     ) -> dict:
-        """Run the full generation pipeline for one submitted problem statement.
+        """Run the full generation pipeline for one submitted problem statement."""
 
-        Args:
-            pid: Optional problem id supplied by the user.
-            raw_statement: Raw Markdown statement from the browser.
-            workspace: Isolated task workspace.
-            num_cases: Number of generator invocations/test inputs to produce.
-            progress: Optional callback receiving stage text and percentage.
-            custom_solution: Optional user-provided C++ standard solution. When present,
-                it replaces the LLM-generated solution for all later stages.
-
-        Returns:
-            A dictionary containing the ZIP path and generation statistics.
-        """
         def report(message: str, percent: int) -> None:
             if progress:
                 progress(message, percent)
@@ -218,9 +208,7 @@ class ForgeService:
             report("生成标准解", 46)
             write_text(source_dir / "solution.cpp", self.solution_builder.build(meta.statement_markdown))
 
-        for i in range(1, num_cases + 1):
-            run_generator_in_sandbox(problem_dir, "source/generator.py", i)
-            report(f"生成测试数据 {i}/{num_cases}", 46 + int(32 * i / max(1, num_cases)))
+        self._generate_cases_parallel(problem_dir, num_cases, progress)
 
         report("整理输入文件", 80)
         in_count = self._collect_and_flatten_inputs(problem_dir, data_dir)
@@ -238,4 +226,10 @@ class ForgeService:
         zip_path = build_dir / f"{zip_name}.zip"
         _package(meta, data_dir, zip_path, source_dir / "solution.cpp")
         report("完成", 100)
-        return {"zip_path": str(zip_path), "status": "success", "inputs": in_count, "outputs": len(outputs), "skipped": len(skipped)}
+        return {
+            "zip_path": str(zip_path),
+            "status": "success",
+            "inputs": in_count,
+            "outputs": len(outputs),
+            "skipped": len(skipped),
+        }

@@ -19,6 +19,7 @@ workspace/tasks/
 workspace/downloads/
 workspace/**/build/
 workspace/**/testdata/
+log.txt
 
 # Frontend deps
 node_modules/

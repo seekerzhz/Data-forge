@@ -1,17 +1,20 @@
-Given the problem statement below, generate a complete runnable `generate.py` script.
+Given the problem statement below, generate a complete runnable Python generator script.
 
-Requirements:
-1. Strictly satisfy all input constraints from the statement.
-2. Generate exactly {{total_cases}} input files in the current folder, named `1.in` ... `{{total_cases}}.in`.
-3. Use this exact distribution:
-   - first {{small_cases}} cases: small/easy-to-debug
-   - next {{special_cases}} cases: special/edge/extreme patterns
-   - next {{random_cases}} cases: random medium-scale
-   - last {{max_cases}} cases: near upper-limit stress tests
-4. Use Python standard library only.
-5. Make generation reproducible (fixed random seed).
-6. Keep input format strictly valid.
-7. Output Python code only, no explanation.
+CLI contract (must follow exactly):
+- Accept arguments: `--id <int>` and `--output-dir <path>`
+- When invoked once with `--id N`, write exactly one file: `<output-dir>/<N>.in`
+- Do NOT write other case files in that invocation
+- Create `output-dir` if missing
+- Use only the Python standard library (`argparse`, `random`, `pathlib`, etc.)
+- Make generation reproducible: seed RNG with a fixed function of `--id` (for example `random.seed(0x41534349 ^ id)`)
+- Keep input format strictly valid for the statement constraints
+- Output Python code only, no explanation
+
+Case design guidance for each `--id` value in `1..{{total_cases}}`:
+- ids `1..{{small_cases}}`: small / easy-to-debug
+- next {{special_cases}} ids: special / edge / extreme patterns
+- next {{random_cases}} ids: random medium-scale
+- remaining ids up to {{total_cases}}: near upper-limit stress tests
 
 Problem statement:
 {{problem}}
