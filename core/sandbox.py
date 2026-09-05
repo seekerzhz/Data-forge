@@ -189,6 +189,28 @@ def run_generator_in_sandbox(
     if len(candidates) == 1:
         shutil.copyfile(candidates[0], expected)
         return expected
+
+    # Older generated scripts commonly hard-code ``testdata/<id>.in`` (or a
+    # file in the workspace) despite accepting --output-dir.  Case invocations
+    # now use isolated staging directories, so retain compatibility with those
+    # scripts by recovering only the file for *this* case.  Matching the case
+    # name, rather than accepting an arbitrary .in file, prevents one parallel
+    # invocation from being assigned another invocation's input.
+    legacy_name = f"{case_id}.in"
+    legacy_candidates = [
+        workspace / legacy_name,
+        workspace / "testdata" / legacy_name,
+    ]
+    legacy_candidates.extend(
+        path
+        for path in workspace.rglob(legacy_name)
+        if path.is_file() and destination not in path.parents and path != expected
+    )
+    for candidate in sorted(set(legacy_candidates)):
+        if candidate.is_file():
+            shutil.copyfile(candidate, expected)
+            return expected
+
     raise RuntimeError(
         f"生成器未为用例 {case_id} 写入 .in 文件；期望路径：{expected}"
     )

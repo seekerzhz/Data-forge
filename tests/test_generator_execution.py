@@ -23,6 +23,24 @@ class GeneratorExecutionTests(unittest.TestCase):
             self.assertEqual(generated, workspace / "build/generated/7/7.in")
             self.assertEqual(generated.read_text(), "3 1 4\n")
 
+    def test_legacy_testdata_case_is_recovered_into_staging_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory)
+            legacy_input = workspace / "testdata" / "3.in"
+
+            def generate_legacy_case(*args, **kwargs) -> subprocess.CompletedProcess[bytes]:
+                legacy_input.parent.mkdir()
+                legacy_input.write_text("legacy input\n")
+                return subprocess.CompletedProcess([], 0, stdout=b"")
+
+            with patch("core.sandbox.run_sandboxed", side_effect=generate_legacy_case):
+                generated = run_generator_in_sandbox(
+                    workspace, "source/generator.py", 3, output_dir="build/generated/3"
+                )
+
+            self.assertEqual(generated, workspace / "build/generated/3/3.in")
+            self.assertEqual(generated.read_text(), "legacy input\n")
+
     def test_parallel_generation_uses_isolated_staging_directories(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             problem_dir = Path(directory)
