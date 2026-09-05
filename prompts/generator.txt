@@ -5,6 +5,7 @@ CLI contract (must follow exactly):
 - When invoked once with `--id N`, write exactly one file: `<output-dir>/<N>.in`
 - Do NOT write other case files in that invocation
 - Create `output-dir` if missing
+- Do not print the generated input to stdout; write it to the required file with `Path(args.output_dir, f"{args.id}.in").write_text(...)`
 - Use only the Python standard library (`argparse`, `random`, `pathlib`, etc.)
 - Make generation reproducible: seed RNG with a fixed function of `--id` (for example `random.seed(0x41534349 ^ id)`)
 - Keep input format strictly valid for the statement constraints

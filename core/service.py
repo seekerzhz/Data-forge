@@ -149,9 +149,18 @@ class ForgeService:
     ) -> None:
         """Generate test inputs concurrently within a bounded worker pool."""
         completed = 0
+        data_dir = problem_dir / "testdata"
+        data_dir.mkdir(parents=True, exist_ok=True)
 
         def one(case_id: int) -> int:
-            run_generator_in_sandbox(problem_dir, "source/generator.py", case_id)
+            staging_dir = f"build/generated/{case_id}"
+            generated = run_generator_in_sandbox(
+                problem_dir,
+                "source/generator.py",
+                case_id,
+                output_dir=staging_dir,
+            )
+            shutil.copyfile(generated, data_dir / f"{case_id}.in")
             return case_id
 
         with ThreadPoolExecutor(max_workers=min(self.case_workers, num_cases)) as pool:
