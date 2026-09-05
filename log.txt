@@ -1,25 +1,11 @@
-INFO:     Started server process [170688]
+INFO:     Started server process [1937885]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-[DataForge][WARN] DATAFORGE_API_TOKEN 未设置；仅建议绑定 127.0.0.1
-INFO:     127.0.0.1:53232 - "GET / HTTP/1.1" 200 OK
-INFO:     127.0.0.1:53232 - "GET /static/styles.css?v=20260702-deepseek-custom-solution HTTP/1.1" 200 OK
-INFO:     127.0.0.1:53242 - "GET /static/js/app.js?v=20260715-hardening HTTP/1.1" 200 OK
-INFO:     127.0.0.1:53232 - "GET /static/js/store.js HTTP/1.1" 200 OK
-INFO:     127.0.0.1:53242 - "GET /static/js/api.js HTTP/1.1" 200 OK
-INFO:     127.0.0.1:53256 - "GET /static/js/ui.js HTTP/1.1" 200 OK
-INFO:     127.0.0.1:53256 - "GET /api/meta HTTP/1.1" 200 OK
-INFO:     127.0.0.1:53256 - "GET /favicon.ico HTTP/1.1" 404 Not Found
-INFO:     127.0.0.1:37766 - "GET / HTTP/1.1" 200 OK
-INFO:     127.0.0.1:37766 - "GET /api/meta HTTP/1.1" 200 OK
-INFO:     127.0.0.1:37778 - "POST /tasks HTTP/1.1" 200 OK
-INFO:     127.0.0.1:37778 - "GET /tasks/9531d2f5-11d6-4495-b7d9-80fca5613201/events HTTP/1.1" 200 OK
-INFO:     127.0.0.1:46384 - "GET /tasks/9531d2f5-11d6-4495-b7d9-80fca5613201 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:37778 - "POST /tasks/9531d2f5-11d6-4495-b7d9-80fca5613201/finish HTTP/1.1" 200 OK
-INFO:     127.0.0.1:46382 - "GET /download/9531d2f5-11d6-4495-b7d9-80fca5613201 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:43700 - "POST /tasks HTTP/1.1" 200 OK
-INFO:     127.0.0.1:43700 - "GET /tasks/143538a2-a55f-4947-84be-95cfd7fec814/events HTTP/1.1" 200 OK
-INFO:     127.0.0.1:43700 - "POST /tasks/143538a2-a55f-4947-84be-95cfd7fec814/finish HTTP/1.1" 200 OK
-INFO:     127.0.0.1:38374 - "GET /tasks/143538a2-a55f-4947-84be-95cfd7fec814 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:38388 - "GET /download/143538a2-a55f-4947-84be-95cfd7fec814 HTTP/1.1" 200 OK
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     218.3.181.30:0 - "POST /tasks HTTP/1.1" 200 OK
+INFO:     218.3.181.30:0 - "GET /tasks/19b99b72-0e72-4ac7-aa81-e4308b897293/events?token=114514 HTTP/1.1" 200 OK
+INFO:     218.3.181.30:0 - "POST /tasks HTTP/1.1" 200 OK
+INFO:     218.3.181.30:0 - "GET /tasks/402ff0ee-e911-4677-a897-e75126b9eee0/events?token=114514 HTTP/1.1" 200 OK
+INFO:     93.123.109.58:0 - "GET /.env HTTP/1.1" 404 Not Found
+INFO:     85.217.149.59:55098 - "GET / HTTP/1.1" 200 OK
+INFO:     85.217.149.59:55098 - "GET /favicon.ico HTTP/1.1" 404 Not Found
