@@ -167,50 +167,55 @@ def run_generator_in_sandbox(
     # Prefer system python inside the sandbox (stdlib only); avoid host venv paths.
     python = "/usr/bin/python3" if Path("/usr/bin/python3").is_file() else "python3"
     destination = workspace / output_dir
-    destination.mkdir(parents=True, exist_ok=True)
-    result = run_sandboxed(
-        workspace,
-        [python, script_name, "--id", str(case_id), "--output-dir", output_dir],
-        timeout_s=timeout_s,
-        memory_mb=256,
-        stdout=subprocess.PIPE,
-    )
     expected = destination / f"{case_id}.in"
-    if expected.is_file():
-        return expected
+    script_relative = Path(script_name)
+    if script_relative.is_absolute() or ".." in script_relative.parts:
+        raise ValueError("script_name 必须是 workspace 内的相对路径")
 
-    # Some otherwise valid LLM-generated scripts print a case instead of writing
-    # the requested file. Preserve that data rather than failing the whole task.
-    if result.stdout and result.stdout.strip():
-        expected.write_bytes(result.stdout)
-        return expected
+    # Each generator gets its own working directory.  This matters even for a
+    # non-compliant generator: many LLM outputs still hard-code paths such as
+    # ``testdata/1.in`` or use their own filename.  Running those scripts in
+    # the shared problem directory made concurrent cases overwrite each other,
+    # leaving the expected file missing intermittently.
+    run_dir = workspace / "build" / ".generator-runs" / str(case_id)
+    shutil.rmtree(run_dir, ignore_errors=True)
+    run_script = run_dir / script_relative
+    run_script.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(workspace / script_relative, run_script)
 
-    candidates = sorted(path for path in destination.rglob("*.in") if path.is_file())
-    if len(candidates) == 1:
-        shutil.copyfile(candidates[0], expected)
-        return expected
-
-    # Older generated scripts commonly hard-code ``testdata/<id>.in`` (or a
-    # file in the workspace) despite accepting --output-dir.  Case invocations
-    # now use isolated staging directories, so retain compatibility with those
-    # scripts by recovering only the file for *this* case.  Matching the case
-    # name, rather than accepting an arbitrary .in file, prevents one parallel
-    # invocation from being assigned another invocation's input.
-    legacy_name = f"{case_id}.in"
-    legacy_candidates = [
-        workspace / legacy_name,
-        workspace / "testdata" / legacy_name,
-    ]
-    legacy_candidates.extend(
-        path
-        for path in workspace.rglob(legacy_name)
-        if path.is_file() and destination not in path.parents and path != expected
-    )
-    for candidate in sorted(set(legacy_candidates)):
-        if candidate.is_file():
-            shutil.copyfile(candidate, expected)
+    try:
+        result = run_sandboxed(
+            run_dir,
+            [python, str(script_relative), "--id", str(case_id), "--output-dir", "output"],
+            timeout_s=timeout_s,
+            memory_mb=256,
+            stdout=subprocess.PIPE,
+        )
+        generated = run_dir / "output" / f"{case_id}.in"
+        if generated.is_file():
+            destination.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(generated, expected)
             return expected
 
-    raise RuntimeError(
-        f"生成器未为用例 {case_id} 写入 .in 文件；期望路径：{expected}"
-    )
+        # Some otherwise valid LLM-generated scripts print a case instead of
+        # writing the requested file. Preserve that data rather than failing
+        # the whole task.
+        if result.stdout and result.stdout.strip():
+            destination.mkdir(parents=True, exist_ok=True)
+            expected.write_bytes(result.stdout)
+            return expected
+
+        # Since this is a per-case working directory, accepting one arbitrary
+        # input file is safe and supports older generators that ignore either
+        # --output-dir or the required '<id>.in' filename.
+        candidates = sorted(path for path in run_dir.rglob("*.in") if path.is_file())
+        if len(candidates) == 1:
+            destination.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(candidates[0], expected)
+            return expected
+
+        raise RuntimeError(
+            f"生成器未为用例 {case_id} 写入 .in 文件；期望路径：{expected}"
+        )
+    finally:
+        shutil.rmtree(run_dir, ignore_errors=True)
