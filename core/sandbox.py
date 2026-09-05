@@ -141,7 +141,13 @@ def run_sandboxed(
     )
 
 
-def run_generator_in_sandbox(workspace: Path, script_name: str, case_id: int, timeout_s: int = 5) -> None:
+def run_generator_in_sandbox(
+    workspace: Path,
+    script_name: str,
+    case_id: int,
+    timeout_s: int = 5,
+    output_dir: str = "testdata",
+) -> Path:
     """Execute generated Python data generator with constrained resources.
 
     Args:
@@ -149,12 +155,40 @@ def run_generator_in_sandbox(workspace: Path, script_name: str, case_id: int, ti
         script_name: Generator path relative to `workspace`.
         case_id: Current test case id passed to the generator.
         timeout_s: Wall-clock and CPU timeout in seconds.
+        output_dir: Directory, relative to ``workspace``, where this invocation
+            must write its input file.
+
+    Returns:
+        The generated input file path.
+
+    Raises:
+        RuntimeError: If the generator exits successfully but produces no input.
     """
     # Prefer system python inside the sandbox (stdlib only); avoid host venv paths.
     python = "/usr/bin/python3" if Path("/usr/bin/python3").is_file() else "python3"
-    run_sandboxed(
+    destination = workspace / output_dir
+    destination.mkdir(parents=True, exist_ok=True)
+    result = run_sandboxed(
         workspace,
-        [python, script_name, "--id", str(case_id), "--output-dir", "testdata"],
+        [python, script_name, "--id", str(case_id), "--output-dir", output_dir],
         timeout_s=timeout_s,
         memory_mb=256,
+        stdout=subprocess.PIPE,
+    )
+    expected = destination / f"{case_id}.in"
+    if expected.is_file():
+        return expected
+
+    # Some otherwise valid LLM-generated scripts print a case instead of writing
+    # the requested file. Preserve that data rather than failing the whole task.
+    if result.stdout and result.stdout.strip():
+        expected.write_bytes(result.stdout)
+        return expected
+
+    candidates = sorted(path for path in destination.rglob("*.in") if path.is_file())
+    if len(candidates) == 1:
+        shutil.copyfile(candidates[0], expected)
+        return expected
+    raise RuntimeError(
+        f"生成器未为用例 {case_id} 写入 .in 文件；期望路径：{expected}"
     )
