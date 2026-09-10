@@ -184,13 +184,21 @@ def run_generator_in_sandbox(
     shutil.copyfile(workspace / script_relative, run_script)
 
     try:
-        result = run_sandboxed(
-            run_dir,
-            [python, str(script_relative), "--id", str(case_id), "--output-dir", "output"],
-            timeout_s=timeout_s,
-            memory_mb=256,
-            stdout=subprocess.PIPE,
-        )
+        try:
+            result = run_sandboxed(
+                run_dir,
+                [python, str(script_relative), "--id", str(case_id), "--output-dir", "output"],
+                timeout_s=timeout_s,
+                memory_mb=256,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError(f"生成器用例 {case_id} 执行超时（限制 {timeout_s} 秒）") from exc
+        except subprocess.CalledProcessError as exc:
+            stderr = (exc.stderr or b"").decode("utf-8", errors="replace").strip()
+            detail = f"；stderr：{stderr[:800]}" if stderr else ""
+            raise RuntimeError(f"生成器用例 {case_id} 执行失败{detail}") from exc
         generated = run_dir / "output" / f"{case_id}.in"
         if generated.is_file():
             destination.mkdir(parents=True, exist_ok=True)
@@ -214,8 +222,8 @@ def run_generator_in_sandbox(
             shutil.copyfile(candidates[0], expected)
             return expected
 
-        raise RuntimeError(
-            f"生成器未为用例 {case_id} 写入 .in 文件；期望路径：{expected}"
-        )
+        stderr = result.stderr.decode("utf-8", errors="replace").strip() if result.stderr else ""
+        detail = f"；stderr：{stderr[:800]}" if stderr else ""
+        raise RuntimeError(f"生成器未为用例 {case_id} 写入 .in 文件；期望路径：{expected}{detail}")
     finally:
         shutil.rmtree(run_dir, ignore_errors=True)
