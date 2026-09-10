@@ -63,5 +63,5 @@ class RateLimiter:
 
 def public_task_view(task: dict) -> dict:
     """Strip internal fields such as zip_path from API payloads."""
-    allow = {"status", "progress", "percent", "inputs", "outputs", "skipped"}
+    allow = {"status", "progress", "percent", "inputs", "outputs", "skipped", "artifact_available"}
     return {key: value for key, value in task.items() if key in allow}

@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from core.service import ForgeService
+from core.service import ForgeArtifactError, ForgeService
 
 
 @dataclass(frozen=True)
@@ -225,7 +225,17 @@ class TaskQueue:
                     **result,
                 )
             except Exception as exc:
-                self._update(job.task_id, status="failed", progress=self._safe_error_message(exc), percent=100)
+                details: dict[str, Any] = {}
+                if isinstance(exc, ForgeArtifactError):
+                    try:
+                        details["zip_path"] = self._stage_zip_for_download(job.task_id, str(exc.artifact_path))
+                        details["artifact_available"] = True
+                    except Exception:
+                        # Never mask the original generation error if report staging fails.
+                        pass
+                self._update(
+                    job.task_id, status="failed", progress=self._safe_error_message(exc), percent=100, **details
+                )
             finally:
                 self._clear_task_workspace(job.task_id)
                 self.jobs.task_done()

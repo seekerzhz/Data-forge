@@ -13,6 +13,7 @@ class SolutionBuilder:
     def __init__(self, llm: LLMClient, prompt_path: Path):
         self.llm = llm
         self.template = read_text(prompt_path)
+        self.last_response = ""
 
     def build(self, problem_statement: str) -> str:
         """Generate C++17 standard solution source code.
@@ -35,4 +36,5 @@ class SolutionBuilder:
         if self.llm.provider == "deepseek":
             kwargs["model"] = os.getenv("DEEPSEEK_REASONING_MODEL", "deepseek-v4-pro")
             kwargs["max_tokens"] = int(os.getenv("DEEPSEEK_REASONING_MAX_TOKENS", "8192"))
-        return extract_code_block(self.llm.chat(**kwargs), language="cpp")
+        self.last_response = self.llm.chat(**kwargs)
+        return extract_code_block(self.last_response, language="cpp")

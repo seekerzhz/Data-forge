@@ -13,7 +13,15 @@ class PipelineRunner:
 
     def _run(self, cmd: list[str]) -> None:
         """Run a host-side build command in the runner workspace."""
-        subprocess.run(cmd, cwd=self.workspace, check=True)
+        # Compiler diagnostics are part of the failure report shown to users.
+        # Capturing them also prevents an opaque CalledProcessError from hiding
+        # the actual LLM-generated C++ mistake.
+        try:
+            subprocess.run(cmd, cwd=self.workspace, check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as exc:
+            diagnostics = (exc.stdout or b"").decode("utf-8", errors="replace").strip()
+            suffix = f"\n编译器诊断：\n{diagnostics[:4000]}" if diagnostics else ""
+            raise RuntimeError(f"标准解编译失败。{suffix}") from exc
 
     def compile_solution(self, source: str = "solution.cpp", output: str = "solution") -> None:
         """Compile the generated C++17 standard solution.

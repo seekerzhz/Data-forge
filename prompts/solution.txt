@@ -8,6 +8,9 @@ Requirements:
 5. Add brief Chinese comments only on key logic.
 6. Handle edge cases robustly.
 7. Output C++ code only, no explanation.
+8. First verify that the statement gives an unambiguous task, input format, and
+   output format. If it is insufficient or contradictory, output exactly one
+   line: `// DATAFORGE_CANNOT_SOLVE: <Chinese reason>`. Do not invent an algorithm.
 
 Problem statement:
 {{problem}}

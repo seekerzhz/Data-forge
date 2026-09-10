@@ -10,6 +10,10 @@ CLI contract (must follow exactly):
 - Make generation reproducible: seed RNG with a fixed function of `--id` (for example `random.seed(0x41534349 ^ id)`)
 - Keep input format strictly valid for the statement constraints
 - Output Python code only, no explanation
+- Before writing code, verify that the statement specifies an unambiguous input
+  format and constraints. If it does not, output exactly one Python comment in
+  the form `# DATAFORGE_CANNOT_GENERATE: <Chinese reason>` and no fake generator.
+- The script must contain `if __name__ == "__main__":` and call `main()`.
 
 Case design guidance for each `--id` value in `1..{{total_cases}}`:
 - ids `1..{{small_cases}}`: small / easy-to-debug

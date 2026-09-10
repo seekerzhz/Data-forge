@@ -20,6 +20,14 @@ from core.solution import SolutionBuilder
 from core.utils import read_text, write_text
 
 
+class ForgeArtifactError(RuntimeError):
+    """Pipeline failure with a downloadable archive of generated LLM artifacts."""
+
+    def __init__(self, message: str, artifact_path: Path):
+        super().__init__(message)
+        self.artifact_path = artifact_path
+
+
 def _package(meta: ProblemMeta, data_dir: Path, zip_path: Path, solution_path: Path) -> None:
     """Build a Hydro-compatible ZIP package from generated test data."""
     root_name = build_problem_artifact_name(meta.pid, meta.title)
@@ -57,6 +65,33 @@ def _package(meta: ProblemMeta, data_dir: Path, zip_path: Path, solution_path: P
         for path in sorted(root.rglob("*")):
             if path.is_file():
                 zf.write(path, path.relative_to(data_dir))
+
+
+def _package_failure(meta: ProblemMeta, problem_dir: Path, reason: str) -> Path:
+    """Archive the statement, all LLM source, and a readable failure reason."""
+    build_dir = problem_dir / "build"
+    report_dir = build_dir / "failure-report"
+    if report_dir.exists():
+        shutil.rmtree(report_dir)
+    report_dir.mkdir(parents=True)
+    write_text(report_dir / "failure.txt", f"DataForge generation failed.\n\nReason:\n{reason}\n")
+    for relative in (
+        Path("problem_zh.md"),
+        Path("source/generator.py"),
+        Path("source/generator.llm-response.txt"),
+        Path("source/solution.cpp"),
+        Path("source/solution.llm-response.txt"),
+    ):
+        source = problem_dir / relative
+        if source.is_file():
+            shutil.copyfile(source, report_dir / relative.name)
+
+    zip_path = build_dir / f"{build_problem_artifact_name(meta.pid, meta.title, max_length=70)}-failure-report.zip"
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for path in sorted(report_dir.rglob("*")):
+            if path.is_file():
+                zf.write(path, path.relative_to(report_dir))
+    return zip_path
 
 
 class ForgeService:
@@ -210,30 +245,51 @@ class ForgeService:
             max(1, num_cases // 3),
         )
         write_text(source_dir / "generator.py", generator_code)
+        raw_generator_response = getattr(self.generator_builder, "last_response", "")
+        if raw_generator_response:
+            write_text(source_dir / "generator.llm-response.txt", raw_generator_response)
         if custom_solution and custom_solution.strip():
             report("使用自定义标准解", 46)
             write_text(source_dir / "solution.cpp", custom_solution.strip() + "\n")
         else:
             report("生成标准解", 46)
             write_text(source_dir / "solution.cpp", self.solution_builder.build(meta.statement_markdown))
+            raw_solution_response = getattr(self.solution_builder, "last_response", "")
+            if raw_solution_response:
+                write_text(source_dir / "solution.llm-response.txt", raw_solution_response)
+        try:
+            for marker, label in (
+                ("DATAFORGE_CANNOT_GENERATE:", "数据生成器无法生成"),
+                ("DATAFORGE_CANNOT_SOLVE:", "标准解无法生成"),
+            ):
+                for path in (source_dir / "generator.py", source_dir / "solution.cpp"):
+                    text = read_text(path)
+                    if marker in text:
+                        reason = text.split(marker, 1)[1].splitlines()[0].strip() or "题面信息不足"
+                        raise RuntimeError(f"{label}：{reason}")
 
-        self._generate_cases_parallel(problem_dir, num_cases, progress)
+            self._generate_cases_parallel(problem_dir, num_cases, progress)
 
-        report("整理输入文件", 80)
-        in_count = self._collect_and_flatten_inputs(problem_dir, data_dir)
-        if in_count == 0:
-            raise RuntimeError("未找到任何 .in 文件")
+            report("整理输入文件", 80)
+            in_count = self._collect_and_flatten_inputs(problem_dir, data_dir)
+            if in_count == 0:
+                raise RuntimeError("未找到任何 .in 文件")
 
-        runner = PipelineRunner(data_dir)
-        report("编译标准解", 84)
-        runner.compile_solution(str((source_dir / "solution.cpp").resolve()), "solution")
-        report("生成输出文件", 88)
-        outputs, skipped = runner.produce_outputs("./solution")
+            runner = PipelineRunner(data_dir)
+            report("编译标准解", 84)
+            runner.compile_solution(str((source_dir / "solution.cpp").resolve()), "solution")
+            report("生成输出文件", 88)
+            outputs, skipped = runner.produce_outputs("./solution")
 
-        report("打包 ZIP", 96)
-        zip_name = build_problem_artifact_name(meta.pid, meta.title, max_length=70)
-        zip_path = build_dir / f"{zip_name}.zip"
-        _package(meta, data_dir, zip_path, source_dir / "solution.cpp")
+            report("打包 ZIP", 96)
+            zip_name = build_problem_artifact_name(meta.pid, meta.title, max_length=70)
+            zip_path = build_dir / f"{zip_name}.zip"
+            _package(meta, data_dir, zip_path, source_dir / "solution.cpp")
+        except Exception as exc:
+            if isinstance(exc, ForgeArtifactError):
+                raise
+            artifact = _package_failure(meta, problem_dir, str(exc))
+            raise ForgeArtifactError(str(exc), artifact) from exc
         report("完成", 100)
         return {
             "zip_path": str(zip_path),

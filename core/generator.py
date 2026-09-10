@@ -12,6 +12,7 @@ class GeneratorBuilder:
     def __init__(self, llm: LLMClient, prompt_path: Path):
         self.llm = llm
         self.template = read_text(prompt_path)
+        self.last_response = ""
 
     def build(
         self,
@@ -47,4 +48,5 @@ class GeneratorBuilder:
             system_prompt="You are an ICPC-level test data engineer. Output Python code only.",
             user_prompt=user_prompt,
         )
+        self.last_response = answer
         return extract_code_block(answer, language="python")

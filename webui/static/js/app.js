@@ -87,6 +87,9 @@ async function submitOne(card) {
         stopWatch(card.id);
       }
       if (state.status === 'failed') {
+        if (state.artifact_available) {
+          autoDownload(payload.task_id);
+        }
         setSubmitDisabled(card, false);
         stopWatch(card.id);
       }
