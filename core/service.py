@@ -99,7 +99,9 @@ class ForgeService:
 
     def __init__(self, provider: str | None = None, model: str | None = None, temperature: float = 0.1):
         selected_provider = provider or LLMConfig().provider
-        max_tokens = 8192 if selected_provider == "deepseek" else None
+        max_tokens = (
+            int(os.getenv("DEEPSEEK_REASONING_MAX_TOKENS", "8192")) if selected_provider == "deepseek" else None
+        )
         self.llm = LLMClient(
             LLMConfig(provider=selected_provider, model=model, temperature=temperature, max_tokens=max_tokens)
         )
