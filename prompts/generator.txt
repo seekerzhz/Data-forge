@@ -8,18 +8,14 @@ CLI contract (must follow exactly):
 - Do not print the generated input to stdout; write it to the required file with `Path(args.output_dir, f"{args.id}.in").write_text(...)`
 - Use only the Python standard library (`argparse`, `random`, `pathlib`, etc.)
 - Make generation reproducible: seed RNG with a fixed function of `--id` (for example `random.seed(0x41534349 ^ id)`)
-- Keep input format strictly valid for the statement constraints
 - Output Python code only, no explanation
-- Before writing code, verify that the statement specifies an unambiguous input
-  format and constraints. If it does not, output exactly one Python comment in
-  the form `# DATAFORGE_CANNOT_GENERATE: <Chinese reason>` and no fake generator.
 - The script must contain `if __name__ == "__main__":` and call `main()`.
 
-Case design guidance for each `--id` value in `1..{{total_cases}}`:
-- ids `1..{{small_cases}}`: small / easy-to-debug
-- next {{special_cases}} ids: special / edge / extreme patterns
-- next {{random_cases}} ids: random medium-scale
-- remaining ids up to {{total_cases}}: near upper-limit stress tests
+Validity is the highest priority. Every generated input must strictly satisfy every stated requirement. In particular, preserve the exact input layout; numeric bounds; counts and relationships such as `n`, `m`, and `q`; uniqueness, duplicate, permutation, and set requirements; graph vertex ranges, no self-loops, no parallel edges, simplicity, connectivity, tree properties, and directedness; string alphabet and length; ordering; and all dependencies between variables. Never create invalid data merely to make an edge, special, or stress case.
+
+Before writing code, verify that the statement gives an unambiguous input format and sufficient constraints to generate only legal inputs. If it does not, output exactly one Python comment in the form `# DATAFORGE_CANNOT_GENERATE: <Chinese reason>` and no fake generator.
+
+Use `--id` to provide a small, relevant mix of valid cases. When applicable to this problem, include minimum and maximum sizes, boundary/extreme or repeated values, monotonic data, relevant special structures, random medium cases, and a valid large stress case. Do not mechanically use every pattern, do not analyze solution complexity, and do not try to find wrong answers. Avoid a generator that is only an unconstrained `random.randint(min, max)` template.
 
 Problem statement:
 {{problem}}
